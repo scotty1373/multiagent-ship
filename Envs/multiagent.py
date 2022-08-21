@@ -1,7 +1,7 @@
 # -*-  coding=utf-8 -*-
-# @Time : 2022/4/10 10:46
+# @Time : 2022/8/20 10:46
 # @Author : Scotty1373
-# @File : sea_env.py
+# @File : multiagent
 # @Software : PyCharm
 import math
 import time
@@ -25,10 +25,10 @@ b2ContactListener：碰撞检测监听器
 import gym
 from gym import spaces
 from gym.utils import seeding, EzPickle
-from .heatmap import HeatMap, heat_map_trans, normalize
 from utils_tools.utils import img_proc
+import config
 
-SCALE = 30
+SCALE = 0.24
 FPS = 60
 
 VIEWPORT_W = 480
@@ -98,31 +98,6 @@ class RayCastClosestCallback(b2RayCastCallback):
         return fraction
 
 
-class ContactDetector(b2ContactListener):
-    def __init__(self, env):
-        b2ContactListener.__init__(self)
-        self.env = env
-
-    def BeginContact(self, contact):
-        # 两船 相撞
-        if contact.fixtureA.body in self.env.ships and contact.fixtureB.body in self.env.ships:
-            contactA_index = self.env.ships.index(contact.fixtureA.body)
-            contactB_index = self.env.ships.indecx(contact.fixtureB.body)
-            self.env.ships[contactA_index].contact = True
-            self.env.ships[contactA_index].coll = True
-            self.env.ships[contactB_index].contact = True
-            self.env.ships[contactB_index].coll = True
-        # 碰撞(触礁/边界)
-        if contact.fixtureA.body or contact.fixtureB.body in self.env.ships:
-            contact_index = self.env.ships.index(contact.fixtureA.body) \
-                if contact.fixtureA.body in self.env.ships else self.env.ships.index(contact.fixtureB.body)
-            self.env.ships[contact_index].contact = True
-
-    def EndContact(self, contact):
-        if contact.fixtureA.body or contact.fixtureB.body in self.env.ships:
-            pass
-
-
 class PosIter:
     def __init__(self, x):
         self.val = x
@@ -135,94 +110,66 @@ class RoutePlan(gym.Env, EzPickle):
         'video.frames_per_second': FPS
     }
 
-    def __init__(self, agent_num, seed=None, ship_pos_fixed=None, positive_heatmap=None):
+    def __init__(self, mode, seed=None):
         EzPickle.__init__(self)
         self.seed()
         self.viewer = None
         self.seed_num = seed
-        self.ship_pos_fixed = ship_pos_fixed
-        if positive_heatmap is not None:
-            self.positive_heat_map = True
-        else:
-            self.positive_heat_map = None
-        self.hard_update = False
+        self.mode = config.load(mode)
 
         # 环境物理结构变量
         self.world = Box2D.b2World(gravity=(0, 0))
-        self.barrier = []
         self.reef = []
-        self.ship = None
-        self.reach_area = None
         self.ground = None
 
-        # agent数量
-        self.agent_num = agent_num
+        # agent生成参数
+        self.agent_num = self.mode.agent_num
+        self.ships_init = self.mode.ships_init
+        self.ships_goal = self.mode.ships_goal
+        self.ships_speed = self.mode.ships_speed
+        self.ships_head = self.mode.ships_head
+        self.ships_length = self.mode.ships_length
+        self.angle_limit = self.mode.angle_limit
+
+        # 归一化参数
+        self.ships_x_min = self.mode.ships_x_min
+        self.ships_y_min = self.mode.ships_y_min
+        self.ships_x_max = self.mode.ships_x_max
+        self.ships_y_max = self.mode.ships_y_max
+        self.ships_dis = self.mode.ships_dis
+        self.ships_dis_max = self.mode.ships_dis_max
+
+        # agent渲染列表
         self.ships = []
+        self.term_points = []
 
-        # 抵达点数量
-        self.reachPoints = []
-
-        # 障碍物生成边界
-        self.barrier_bound_x = 0.8
-        self.barrier_bound_y = 0.9
-        self.dead_area_bound = 0.03
+        # Raycast船体半径
         self.ship_radius = 0.36*element_wise_weight
-
-        # game状态记录
-        self.timestep = 0
-        self.game_over = None
-        self.ground_contact = None
-        self.dist_record = None
+        # 渲染列表
         self.draw_list = None
-        self.dist_norm = 14.38
-        self.dist_init = None
-        self.iter_ship_pos = None
-
-        # 生成环形链表
-        self.loop_ship_posGenerator()
-
-        # heatmap生成状态记录
-        self.heatmap_mapping_ra = None
-        self.heatmap_mapping_bl = None
-        self.heat_map = None
-        self.pathFinding = None
 
         # useful range is -1 .. +1, but spikes can be higher
-        self.observation_space = spaces.Box(-np.inf, np.inf, shape=(8,), dtype=np.float32)
-        self.action_space = spaces.Box(-1, +1, (2,), dtype=np.float32)
+        self.observation_space = spaces.Box(-np.inf, np.inf, shape=(3,), dtype=np.float32)
+        self.action_space = spaces.Box(-1, +1, (1,), dtype=np.float32)
         self.reset()
-
-    def loop_ship_posGenerator(self):
-        self.iter_ship_pos = cur = PosIter(SHIP_POSITION[0])
-        for x in SHIP_POSITION:
-            tmp = PosIter(x)
-            cur.next = tmp
-            cur = tmp
-        cur.next = self.iter_ship_pos
 
     def seed(self, seed=None):
         self.np_random, seed = seeding.np_random(seed)
         return [seed]
 
     def _destroy(self):
-        if self.ship is None:
-            return
-        # 清除障碍物
-        if self.barrier:
-            for idx, barr in enumerate(self.barrier):
-                self.world.DestroyBody(barr)
-        self.barrier.clear()
-        if self.reef:
-            for reef in self.reef:
-                self.world.DestroyBody(reef)
+        # 船体和终止点移除
+        for idx in range(self.agent_num):
+            self.world.DestroyBody(self.ships[idx])
+            self.world.DestroyBody(self.term_points[idx])
+        self.ships.clear()
+        self.term_points.clear()
+        # 海下礁石移除
+        for reef in self.reef:
+            self.world.DestroyBody(reef)
         self.reef.clear()
-        # 清除reach area
-        self.world.DestroyBody(self.reach_area)
-        self.reach_area = None
-        # 清除船体
-        self.world.DestroyBody(self.ship)
-        self.ship = None
 
+    # 验证礁石生成位置是否合法
     def isValid(self, fixture_center, barrier_dict=None, reef_dict=None):
         if barrier_dict is not None:
             for idx in range(len(barrier_dict['center_point'])):
@@ -240,12 +187,6 @@ class RoutePlan(gym.Env, EzPickle):
 
     def reset(self):
         self._destroy()
-        self.world.contactListener_keepref = ContactDetector(self)
-        self.world.contactListener = self.world.contactListener_keepref
-        self.game_over = False
-        self.ground_contact = False
-        self.dist_record = None
-        self.timestep = 0
 
         W = VIEWPORT_W / SCALE
         H = VIEWPORT_H / SCALE
@@ -265,6 +206,7 @@ class RoutePlan(gym.Env, EzPickle):
              (-VIEWPORT_W/SCALE/2, VIEWPORT_H/SCALE/2)])
 
         """暗礁生成"""
+        """
         # reef generate test
         reef_dict = {'center_point': [],
                      'radius': []}
@@ -280,6 +222,7 @@ class RoutePlan(gym.Env, EzPickle):
                 self.reef.append(reef)
                 reef_dict['center_point'].append(reef_position)
                 reef_dict['radius'].append(0.36)
+        """
 
         for idx in range(self.agent_num):
             """ship生成"""
@@ -307,13 +250,8 @@ class RoutePlan(gym.Env, EzPickle):
             # 碰撞出现 -> contact为True
             # 船与船之间相撞 -> coll为True
             # 船体与抵达点相接触 -> game_over为True
-            ship.contact = False
-            ship.coll = False
-            ship.game_over = False
             ship.color_bg = PANEL[idx]
             ship.color_fg = PANEL[idx+1]
-            ship.ApplyForceToCenter((self.np_random.uniform(-INITIAL_RANDOM, INITIAL_RANDOM),
-                                     self.np_random.uniform(-INITIAL_RANDOM, INITIAL_RANDOM)), wake=True)
             self.ships.append(ship)
 
             """抵达点生成"""
@@ -400,7 +338,8 @@ class RoutePlan(gym.Env, EzPickle):
         """船体推进位置及动力大小计算"""
         speed2ship = self.remap(act[0], MAIN_ENGINE_POWER)
         orient2ship = self.remap(act, MAIN_ORIENT_POWER)
-        self.ship.angle = np.clip(-b2_pi/6, b2_pi/6, orient2ship+self.ship.angle)
+        # 映射逆时针为正方向
+        self.ship.angle = np.clip(-b2_pi/6, b2_pi/6, orient2ship-self.ship.angle)
 
         self.ship.position[0] = math.cos(self.ship.angle)*speed2ship + self.ship.position[0]
         self.ship.position[1] = math.sin(self.ship.angle)*speed2ship + self.ship.position[1]
@@ -606,4 +545,4 @@ def demo_TraditionalPathPlanning(env, seed=None):
 
 if __name__ == '__main__':
     # demo_route_plan(RoutePlan(seed=42), render=True)
-    demo_TraditionalPathPlanning(RoutePlan(barrier_num=3, seed=42))
+    demo_TraditionalPathPlanning(RoutePlan('2Ship_CrossAway', seed=42))

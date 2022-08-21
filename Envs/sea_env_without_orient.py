@@ -52,10 +52,6 @@ SHIP_POLY_BP = [
     (+8, -6), (+8, +6), (0, +8)
     ]
 
-SHIP_POSITION = [(-6.5, 8), (-6.5, 1.5), (6.5, 8),
-                 (6.5, 14.5), (-6.5, 14.5),
-                 (0, 14.5), (-6.5, 1.5)]
-
 element_wise_weight = 0.8
 SHIP_POLY = [
     (SHIP_POLY_BP[0][0]*element_wise_weight, SHIP_POLY_BP[0][1]*element_wise_weight),
@@ -67,11 +63,6 @@ SHIP_POLY = [
     ]
 
 REACH_POLY = [(-1, 1), (-1, -1), (1, -1), (1, 1)]
-
-RECH_RECT = [
-    (-0.5, +0.5), (-0.5, -0.5),
-    (+0.5, -0.5), (+0.5, +0.5)
-]
 
 action = [0, 0]
 
@@ -105,30 +96,6 @@ class RayCastClosestCallback(b2RayCastCallback):
         #    type 'float32'"
         # without returning a value
         return fraction
-
-
-class ContactDetector(b2ContactListener):
-    def __init__(self, env):
-        b2ContactListener.__init__(self)
-        self.env = env
-
-    def BeginContact(self, contact):
-        if self.env.ship == contact.fixtureA.body or self.env.ship == contact.fixtureB.body:
-            self.env.ship.contact = True
-            if self.env.reach_area == contact.fixtureA.body or self.env.reach_area == contact.fixtureB.body:
-                self.env.game_over = True
-            elif self.env.ground == contact.fixtureA.body or self.env.ground == contact.fixtureB.body:
-                self.env.ground_contact = True
-
-    def EndContact(self, contact):
-        if self.env.ship in [contact.fixtureA.body, contact.fixtureB.body]:
-            self.env.ship.contact = False
-
-
-class PosIter:
-    def __init__(self, x):
-        self.val = x
-        self.next = None
 
 
 class RoutePlan(gym.Env, EzPickle):
@@ -176,9 +143,6 @@ class RoutePlan(gym.Env, EzPickle):
         self.dist_norm = 14.38
         self.dist_init = None
         self.iter_ship_pos = None
-
-        # 生成环形链表
-        self.loop_ship_posGenerator()
 
         # heatmap生成状态记录
         self.heatmap_mapping_ra = None
