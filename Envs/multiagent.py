@@ -27,6 +27,8 @@ from gym import spaces
 from gym.utils import seeding, EzPickle
 from utils_tools.utils import img_proc
 import config
+from utils_tools.check_state import CheckState
+from utils_tools.utils import NormData
 
 SCALE = 0.24
 FPS = 60
@@ -121,9 +123,10 @@ class RoutePlan(gym.Env, EzPickle):
         self.world = Box2D.b2World(gravity=(0, 0))
         self.reef = []
         self.ground = None
+        self.time_step = 0
 
         # agent生成参数
-        self.agent_num = self.mode.agent_num
+        self.agent_num = self.mode.ships_num
         self.ships_init = self.mode.ships_init
         self.ships_goal = self.mode.ships_goal
         self.ships_speed = self.mode.ships_speed
@@ -138,10 +141,19 @@ class RoutePlan(gym.Env, EzPickle):
         self.ships_y_max = self.mode.ships_y_max
         self.ships_dis = self.mode.ships_dis
         self.ships_dis_max = self.mode.ships_dis_max
+        self.ship_max_length = self.mode.ships_length.max()
+        self.ship_max_speed = self.mode.ships_speed.max()
 
         # agent渲染列表
         self.ships = []
         self.term_points = []
+
+        # 终止状态检测 + reward计算
+        self.state_store = None
+        self.norm = NormData()
+        self.check_state = CheckState(self.mode)
+        self.ships_done = [False] * self.agent_num
+        self.ships_coll = [False] * self.agent_num
 
         # Raycast船体半径
         self.ship_radius = 0.36*element_wise_weight
@@ -158,6 +170,10 @@ class RoutePlan(gym.Env, EzPickle):
         return [seed]
 
     def _destroy(self):
+        if not self.ships:
+            return
+        if not self.term_points:
+            return
         # 船体和终止点移除
         for idx in range(self.agent_num):
             self.world.DestroyBody(self.ships[idx])
@@ -187,7 +203,14 @@ class RoutePlan(gym.Env, EzPickle):
 
     def reset(self):
         self._destroy()
+        # 环境变量重置
+        self.time_step = 0
+        self.state_store = None
+        # 终止状态重置
+        self.ships_done = [False] * self.agent_num
+        self.ships_coll = [False] * self.agent_num
 
+        # 重建环境
         W = VIEWPORT_W / SCALE
         H = VIEWPORT_H / SCALE
         """设置边界范围"""
@@ -234,8 +257,8 @@ class RoutePlan(gym.Env, EzPickle):
             #### 增加线性阻尼可以使物体行动有摩擦
             """
             ship = self.world.CreateDynamicBody(
-                position=SHIP_POSITION[idx],
-                angle=0.0,
+                position=self.ships_init[idx],
+                angle=math.radians(self.ships_head[idx]),
                 angularDamping=20,
                 linearDamping=10,
                 fixedRotation=True,
@@ -256,14 +279,14 @@ class RoutePlan(gym.Env, EzPickle):
 
             """抵达点生成"""
             # 设置抵达点位置
-            circle_shape = b2PolygonShape(vertices=[(x/5, y/5) for x, y in REACH_POLY])
-            reach_area = self.world.CreateStaticBody(position=SHIP_POSITION[-idx],
+            circle_shape = b2PolygonShape(vertices=[(x/SCALE*10, y/SCALE*10) for x, y in REACH_POLY])
+            reach_area = self.world.CreateStaticBody(position=self.ships_goal[idx],
                                                      fixtures=b2FixtureDef(
-                                                         shape=circle_shape
-                                                    ))
+                                                         shape=circle_shape)
+                                                     )
             reach_area.color = ship.color_bg
-            self.reachPoints.append(reach_area)
-        self.draw_list = self.ships + self.reach_area + [self.ground]
+            self.term_points.append(reach_area)
+        self.draw_list = self.ships + [self.ground] + self.term_points
         """
         # reward Heatmap构建
         # 使heatmap只生成一次
@@ -295,77 +318,67 @@ class RoutePlan(gym.Env, EzPickle):
         # x, y = np.meshgrid(np.linspace(0, 79, 80), np.linspace(0, 79, 80))
         # ax.plot_surface(x, y, self.heat_map.T, rstride=1, cstride=1, cmap='viridis', edgecolor='none')
         # plt.show()
-
-        end_info = b2Distance(shapeA=self.ship.fixtures[0].shape,
-                              idxA=0,
-                              shapeB=self.reach_area.fixtures[0].shape,
-                              idxB=0,
-                              transformA=self.ship.transform,
-                              transformB=self.reach_area.transform,
-                              useRadii=True)
-        self.dist_init = end_info.distance
-        return self.step(self.np_random.uniform(-1, 1, size=(2,)))
+        return self.step(self.np_random.uniform(0, 0, size=(self.agent_num, 2)))
 
     def step(self, action_samples: np.array):
-        assert action_samples.shape == np.array(self.agent_num, 2)
+        assert action_samples.shape == (self.agent_num, 2)
         action_samples[..., 0] = np.clip(action_samples[..., 0], 0, 1).astype('float32')
         action_samples[..., 1] = np.clip(action_samples[..., 1], -1, 1).astype('float32')
 
         # multi-agent 返回值统计
         obs_n = []
-        reward_n = []
-        done_n = []
-        info_n = []
-
-        if not self.ships:
-            return
+        raw_obs_n = []
+        info_n = {}
 
         """船体与世界交互得到各agent observation"""
-        for agent in self.ships:
-            self._set_action(action_samples, agent)
+        for idx in range(self.agent_num):
+            if not self.ships_done[idx]:
+                self._set_action(action_samples, idx)
 
         self.world.Step(1.0 / FPS, 10, 10)
-        for agent in self.ships:
-            obs_n.append(self._get_observation(agent))
-            reward_n.append(self._compute_reward(agent))
-            done_n.append(self._compute_done(agent))
-            info_n.append({})
+        for agent in range(self.agent_num):
+            raw_obs, obs = self._get_observation(agent)
+            raw_obs_n.append(raw_obs)
+            obs_n.append(obs)
+        raw_obs_n = np.array(raw_obs_n)
+        reward_n, done_term, done_coll, dis_closest = self._compute_done_reward(self.state_store, raw_obs_n)
+        info_n['done_coll'] = done_coll
+        info_n['dis_closest'] = dis_closest
+        self.state_store = raw_obs_n
+        print(f"shipa_reward: {reward_n[0]}, shipb_reward: {reward_n[1]}")
+        return obs_n, reward_n, done_term, info_n
 
-        '''失败终止状态定义在训练迭代主函数中，由主函数给出失败终止状态惩罚reward'''
-        return obs_n, reward_n, done_n, info_n
-
-    def _set_action(self, act, agent):
+    def _set_action(self, act, idx):
         """船体推进位置及动力大小计算"""
-        speed2ship = self.remap(act[0], MAIN_ENGINE_POWER)
-        orient2ship = self.remap(act, MAIN_ORIENT_POWER)
+        speed2ship = self.remap(act[idx, 0], MAIN_ENGINE_POWER)
+        orient2ship = self.remap(act[idx, 1], self.angle_limit)
         # 映射逆时针为正方向
-        self.ship.angle = np.clip(-b2_pi/6, b2_pi/6, orient2ship-self.ship.angle)
+        # agent.angle = np.clip(-b2_pi/6, b2_pi/6, orient2ship-agent.angle)
+        self.ships[idx].angle = self.ships[idx].angle - orient2ship
 
-        self.ship.position[0] = math.cos(self.ship.angle)*speed2ship + self.ship.position[0]
-        self.ship.position[1] = math.sin(self.ship.angle)*speed2ship + self.ship.position[1]
+        self.ships[idx].position[0] = math.cos(self.ships[idx].angle)*self.ships_speed[idx].item() + self.ships[idx].position[0]
+        self.ships[idx].position[1] = math.sin(self.ships[idx].angle)*self.ships_speed[idx].item() + self.ships[idx].position[1]
 
-    def _get_observation(self, agent, landmark):
+    def _get_observation(self, idx):
         # 11 维传感器数据字典
         sensor_raycast = {"points": np.zeros((RAY_CAST_LASER_NUM, 2)),
                           'normal': np.zeros((RAY_CAST_LASER_NUM, 2)),
                           'distance': np.zeros((RAY_CAST_LASER_NUM, 2))}
         # 传感器扫描
         length = self.ship_radius * 5  # Set up the raycast line
-        point1 = agent.position
+        point1 = self.ships[idx].position
         for vect in range(RAY_CAST_LASER_NUM):
-            ray_angle = agent.angle - b2_pi / 2 + (b2_pi * 2 / RAY_CAST_LASER_NUM * vect)
+            ray_angle = self.ships[idx].angle - b2_pi / 2 + (b2_pi * 2 / RAY_CAST_LASER_NUM * vect)
             d = (length * math.cos(ray_angle), length * math.sin(ray_angle))
             point2 = point1 + d
 
             # 初始化Raycast callback函数
             callback = RayCastClosestCallback()
-
             self.world.RayCast(callback, point1, point2)
-
             if callback.hit:
                 sensor_raycast['points'][vect] = callback.point
                 sensor_raycast['normal'][vect] = callback.normal
-                if callback.fixture == landmark.fixtures[0]:
+                if callback.fixture == self.term_points[idx].fixtures[0]:
                     sensor_raycast['distance'][vect] = (3, Distance_Cacul(point1, callback.point) - self.ship_radius)
                 elif callback.fixture in self.ground.fixtures:
                     sensor_raycast['distance'][vect] = (2, Distance_Cacul(point1, callback.point) - self.ship_radius)
@@ -376,43 +389,55 @@ class RoutePlan(gym.Env, EzPickle):
         sensor_raycast['distance'][..., 1] /= self.ship_radius * 5
 
         # 当前船体相较于世界位置
-        pos = agent.position
-        # 当前船体速度矢量
-        vel = agent.linearVelocity
+        pos = self.ships[idx].position
 
         # 根据速度矢量计算当前船体行驶方位
-        ship_head_radians = wrap_to_2pi(agent.angle)
-        # ship速度标量计算
-        ship_vel_scaler = Distance_Cacul(vel, b2Vec2(0, 0))
+        # 取余操作在对负数取余时，在Python当中,如果取余的数不能够整除，那么负数取余后的结果和相同正数取余后的结果相加等于除数。
+        # 将负数角度映射到正确的范围内
+        if self.ships[idx].angle < 0:
+            angle_unrotate = - ((b2_pi*2) - self.ships[idx].angle % (b2_pi * 2))
+        else:
+            angle_unrotate = self.ships[idx].angle % (b2_pi * 2)
+        # 角度映射到 [-pi, pi]
+        if angle_unrotate < -b2_pi:
+            angle_unrotate += (b2_pi * 2)
+        elif angle_unrotate > b2_pi:
+            angle_unrotate -= (b2_pi * 2)
+        ship_head_radians = wrap_to_2pi(self.ships[idx].angle)
+        ship_head_degrees = round(math.degrees(ship_head_radians), 2)
 
+        # 原始状态值
         state = [
             pos[0],
             pos[1],
-            ship_head_radians
+            ship_head_degrees
         ]
         assert len(state) == 3
 
-        return np.hstack(state)
+        # 状态值归一化
+        norm_state = [
+            self.norm.pos_norm(pos[0], self.ships_x_min[idx], self.ships_x_max[idx]),
+            self.norm.pos_norm(pos[1], self.ships_y_min[idx], self.ships_y_max[idx]),
+            self.norm.ang_norm(ship_head_degrees)
+        ]
+        assert len(norm_state) == 3
 
-    def _get_done(self, agent):
-        done = np.zeros((self.agent_num, 1))
-        for idx, agent in enumerate(self.ships):
-            if agent.contact:
-                done[idx] = True
+        return np.hstack(state), np.hstack(norm_state)
+
+    def _compute_done_reward(self, state, next_state):
+        reward_done = self.check_state.check_done(next_state, self.ships_done)
+        reward_ang_keep = self.check_state.check_rela_ang(next_state)
+        if self.agent_num == 1:
+            reward = reward_done + reward_ang_keep
+        else:
+            reward_coll, dis_closest = self.check_state.check_coll(next_state, self.ships_coll)
+            reward_cpa = self.check_state.check_CPA(next_state)
+            if self.time_step == 0:
+                reward_corleg = 0.0
             else:
-                done[idx] = False    # 船体碰撞终止状态
-        return done
-
-    def _compute_done(self, agent):
-        # [todo: 终止条件判断]
-        pass
-
-    def _compute_reward(self, agent):
-        # [todo: 1.终止条件奖励计算
-        #      2.船体碰撞奖励计算
-        #      3.CPA奖励计算
-        #      4.符合CORLEGs规则奖励计算]
-        pass
+                reward_corleg, _ = self.check_state.check_CORLEGs(state, next_state)
+            reward = reward_done + reward_ang_keep + reward_coll + reward_cpa + reward_corleg
+        return reward, self.ships_done, self.ships_coll, dis_closest
 
     def render(self, mode='human', hide=True):
         from gym.envs.classic_control import rendering
@@ -442,7 +467,7 @@ class RoutePlan(gym.Env, EzPickle):
                         path.append(path[0])
                         self.viewer.draw_polyline(path, color=obj.color_fg, linewidth=2)
                     elif hasattr(obj, 'color'):
-                        self.viewer.draw_polygon(path, color=PANEL[4])
+                        self.viewer.draw_polygon(path, color=obj.color)
                         path.append(path[0])
                         self.viewer.draw_polyline(path, color=PANEL[5], linewidth=2)
                     else:
@@ -490,32 +515,30 @@ def manual_control(key):
         action[0] = 1
 
 
-def demo_route_plan(env, seed=None, render=False):
-    global action
-    env.seed(seed)
+def demo_route_plan():
+    env = RoutePlan(mode='2Ship_CrossAway')
     total_reward = 0
     steps = 0
-    done = False
-    keyboard.hook(manual_control)
+    done = None
     while True:
         if not steps % 5:
+            action = np.random.uniform(-0.01, 0.01, size=(2, 2))
+            action[..., 0] = abs(action[..., 0])
             s, r, done, info = env.step(action)
-            action = [0, 0]
+            done_coll = info['done_coll']
+            dis_closest = info['dis_closest']
             total_reward += r
 
-        if render:
-            still_open = env.render()
-            if still_open is False:
-                break
-
+        still_open = env.render()
+        if still_open is False:
+            break
         # if steps % 20 == 0 or done:
         #     print("observations:", " ".join(["{:+0.2f}".format(x) for x in s]))
         #     print("step {} total_reward {:+0.2f}".format(steps, total_reward))
         steps += 1
-        if done and env.game_over:
-            break
+        if any(done) or steps % 2048 == 0 or any(done_coll):
+            env.reset()
     env.close()
-    return total_reward
 
 
 def demo_TraditionalPathPlanning(env, seed=None):
@@ -544,5 +567,5 @@ def demo_TraditionalPathPlanning(env, seed=None):
 
 
 if __name__ == '__main__':
-    # demo_route_plan(RoutePlan(seed=42), render=True)
-    demo_TraditionalPathPlanning(RoutePlan('2Ship_CrossAway', seed=42))
+    demo_route_plan()
+    # demo_TraditionalPathPlanning(RoutePlan('2Ship_CrossAway', seed=42))

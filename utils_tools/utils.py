@@ -175,3 +175,36 @@ class ReplayBuffer:
                 torch.FloatTensor(self.action[ind]).to(self.device),
                 torch.FloatTensor(self.done[ind]).to(self.device))
 
+class NormData:
+    def pos_norm(self, pos_cur, pos_min, pos_max):
+        """
+        # 位置状态归一化
+        :param pos_cur: current axis position
+        :param pos_min: min axis position
+        :param pos_max: max axis position
+        :return:
+        """
+        if pos_min == pos_max:
+            pos_cur = 0.0
+        else:
+            pos_cur = (pos_cur - pos_min) / (pos_max - pos_min)
+        return pos_cur
+
+    def ang_norm(self, ang_cur):
+        """
+        # 朝向角归一化
+        :param ang_cur: current angle [0, 360]
+        :return:
+        """
+        ang_cur = (180 - ang_cur) / 180
+        return ang_cur
+
+    def rwd_norm(self, rwd_cur, rwd_max):
+        """
+        # reward归一化
+        :param rwd_cur: current reward value
+        :param rwd_max: maximum reward value
+        :return:
+        """
+        rwd_cur = rwd_cur / rwd_max
+        return rwd_cur

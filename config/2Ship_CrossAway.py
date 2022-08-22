@@ -1,4 +1,7 @@
 import math
+
+import numpy as np
+
 from utils_tools.functions import *
 
 ships_num = 2
@@ -15,7 +18,7 @@ ships_speed[0] = 10
 ships_head[0] = 45
 ships_length[0] = 50
 
-ships_init[1, :] = np.array([800, 300])
+ships_init[1, :] = np.array([800, 200])
 ships_goal[1, :] = np.array([-800, 1800])
 ships_speed[1] = 10
 ships_head[1] = 135
@@ -24,6 +27,9 @@ ships_length[1] = 50
 # actions of ships
 ship_action_space = 1
 angle_limit = math.radians(30)  # heading angle changing range (-30, 30)
+
+# distance redundant
+dis_redundant = 20
 
 # --------------------------------------------------
 # calculate below data based on given data
@@ -43,3 +49,5 @@ for ship_idx in range(ships_num):
                               ships_init[ship_idx, 1], ships_goal[ship_idx, 1]))
 ships_dis_max = np.array(ships_dis).max(-1)
 ships_vel_min = ships_speed.min(0)
+ship_max_length = np.array(ships_length).max()
+ship_max_speed = np.array(ships_speed).max()
