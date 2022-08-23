@@ -99,7 +99,36 @@ def subarrayBitwiseANDs(A, max, sele):
     dp.reverse()
 
 
+city_num = 5
+cost_max = 3
+city_cost = [(1, 3), (2, 1), (5, 2), (3, 1), (4, 3)]
+
+def max_happy(cn, cm, cc):
+    dp = [0] * (cn - cm + 1)
+    city_cost.sort(key=lambda x: x[0])
+    ptr_l, ptr_r = 0, cm - 1
+
+    def cal_cost(left, right):
+        cost = 0
+        for i in range(left, right+1):
+            cost += city_cost[i][1]
+        return cost
+
+    counter = 0
+    max_hp = 0
+    while ptr_r <= len(city_cost) - 1:
+        happy_val = cal_cost(ptr_l, ptr_r)
+        max_hp = max(happy_val, max_hp)
+        dp[counter] = happy_val
+        ptr_l += 1
+        ptr_r += 1
+        counter += 1
+    print(max_hp)
+
+
+
 if __name__ == '__main__':
     # max_scores(max_lens, res_lens, iss_score, iss_prob)
-    print(getSubstringWithEqual012(sub_str))
+    # print(getSubstringWithEqual012(sub_str))
     # subarrayBitwiseANDs(lt, max_lt_lens, select_lens)
+    max_happy(city_num, cost_max, city_cost)

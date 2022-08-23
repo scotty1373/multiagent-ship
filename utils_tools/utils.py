@@ -128,18 +128,21 @@ class RunningMeanStd(object):
         self.count = new_count
 
 
-class ReplayBuffer:
-    def __init__(self, max_lens, frame_overlay, state_length, action_dim, device):
+class MultiAgentReplayBuffer:
+    def __init__(self, max_lens, frame_overlay, state_length, action_dim, agent_num, device):
         self.ptr = 0
         self.size = 0
         self.max_lens = max_lens
         self.state_length = state_length
         self.frame_overlay = frame_overlay
         self.action_dim = action_dim
+        self.agent_num = agent_num
         self.device = device
-        self.rwd_rms = RunningMeanStd()
-        self.pixel = np.zeros((self.max_lens, self.frame_overlay, 80, 80))
-        self.next_pixel = np.zeros((self.max_lens, self.frame_overlay, 80, 80))
+
+        # state store for critic
+        self.vect_state = np.zeros(self.max_lens, self.state_length * frame_overlay * agent_num)
+
+        # state store for actor
         self.vect = np.zeros((self.max_lens, self.state_length * self.frame_overlay))
         self.next_vect = np.zeros((self.max_lens, self.state_length * self.frame_overlay))
         self.reward = np.zeros((self.max_lens, 1))

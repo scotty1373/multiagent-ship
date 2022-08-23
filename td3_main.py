@@ -12,7 +12,7 @@ from tqdm import tqdm
 
 from Envs.sea_env_without_orient import RoutePlan
 from wrapper.wrapper import SkipEnvFrame
-from TD3.TD3 import TD3
+from MATD3.MATD3 import MATD3
 from utils_tools.common import TIMESTAMP, seed_torch
 from utils_tools.utils import state_frame_overlay, pixel_based, first_init, trace_trans
 from utils_tools.utils import ReplayBuffer
@@ -24,7 +24,7 @@ IMG_SIZE_RENDEER = 480
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description='TD3 config option')
+        description='MATD3 config option')
     parser.add_argument('--epochs',
                         help='Training epoch',
                         default=1000,
@@ -120,14 +120,14 @@ def main(args):
     tb_logger.add_figure('figure', fig)
 
     """初始化agent"""
-    agent = TD3(frame_overlay=args.frame_overlay,
-                state_length=args.state_length,
-                action_dim=2,
-                batch_size=args.batch_size,
-                overlay=args.frame_overlay,
-                device=device,
-                train=args.train,
-                logger=tb_logger)
+    agent = MATD3(frame_overlay=args.frame_overlay,
+                  state_length=args.state_length,
+                  action_dim=2,
+                  batch_size=args.batch_size,
+                  overlay=args.frame_overlay,
+                  device=device,
+                  train=args.train,
+                  logger=tb_logger)
 
     # pretrained 选项，载入预训练模型
     if args.pre_train:
