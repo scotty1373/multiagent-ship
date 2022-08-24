@@ -34,7 +34,6 @@ class Agent:
         self.lr_critic = 1e-5
         self.discount_index = 0.95
         self.smooth_regular = 0.2
-        self.delay_update = 5
         self.noise = Normal(DISTRIBUTION_INDEX[0], DISTRIBUTION_INDEX[1])
         self.target_model_regular_noise = Normal(0, 0.2)
 
@@ -61,14 +60,16 @@ class Agent:
         cut_requires_grad(self.actor_target.parameters())
         cut_requires_grad(self.critic_target.parameters())
 
-    def get_action(self, vect_state):
+    def get_action(self, vect_state, explore=True, noise_clip=0.2):
         vect = torch.FloatTensor(vect_state).to(self.device)
         logits = self.actor_model(vect)
-        if self.train:
+        if self.train and explore:
+            noise = self.noise.sample()
             # acc 动作裁剪
-            logits = (logits + self.noise.sample()).clamp_(min=self.action_space.min(), max=self.action_space.max())
+            logits += noise.clamp(min=-noise_clip, max=noise_clip)
+            logits = logits.clamp(min=self.action_space.min(), max=self.action_space.max())
         else:
-            logits[..., 0] = logits[..., 0].clamp_(min=self.action_space.min(), max=self.action_space.max())
+            logits = logits.clamp(min=self.action_space.min(), max=self.action_space.max())
         return logits.detach().cpu().numpy()
 
     def save_model(self, file_name):

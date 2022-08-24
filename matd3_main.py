@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 import argparse
-import gc
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -10,12 +9,12 @@ from PIL import Image, ImageDraw
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
-from Envs.sea_env_without_orient import RoutePlan
+from Envs.multiagent import RoutePlan
 from wrapper.wrapper import SkipEnvFrame
 from MATD3.MATD3 import MATD3
 from utils_tools.common import TIMESTAMP, seed_torch
 from utils_tools.utils import state_frame_overlay, pixel_based, first_init, trace_trans
-from utils_tools.utils import ReplayBuffer
+from utils_tools.utils import MultiAgentReplayBuffer
 
 TIME_BOUNDARY = 500
 IMG_SIZE = (80, 80)
@@ -25,6 +24,10 @@ IMG_SIZE_RENDEER = 480
 def parse_args():
     parser = argparse.ArgumentParser(
         description='MATD3 config option')
+    parser.add_argument('--mode',
+                        default='2Ship_CrossAway',
+                        type=str,
+                        help='environment name')
     parser.add_argument('--epochs',
                         help='Training epoch',
                         default=1000,
@@ -95,11 +98,6 @@ def main(args):
     # logger_ep = log2json(filename='train_log_ep', type_json=True)
     # tensorboard初始化
     tb_logger = SummaryWriter(log_dir=f"./log/{TIMESTAMP}", flush_secs=120)
-    replay_buffer = ReplayBuffer(max_lens=args.replay_buffer_size,
-                                 frame_overlay=args.frame_overlay,
-                                 state_length=args.state_length,
-                                 action_dim=2,
-                                 device=device)
 
     # 是否随机初始化种子
     if args.seed is not None:
@@ -108,10 +106,17 @@ def main(args):
         seed = None
 
     # 环境与agent初始化
-    env = RoutePlan(barrier_num=3, seed=seed, ship_pos_fixed=True)
+    env = RoutePlan(mode=args.mode, seed=seed)
     # env.seed(13)
     env = SkipEnvFrame(env, args.frame_skipping)
     assert isinstance(args.batch_size, int)
+
+    replay_buffer = MultiAgentReplayBuffer(max_lens=args.replay_buffer_size,
+                                           frame_overlay=args.frame_overlay,
+                                           state_length=args.state_length,
+                                           action_dim=1,
+                                           agent_num=env.env.agent_num,
+                                           device=device)
 
     # 子线程显示当前环境heatmap
     fig, ax1 = plt.subplots(1, 1)

@@ -140,42 +140,51 @@ class MultiAgentReplayBuffer:
         self.device = device
 
         # state store for critic
-        self.vect_state = np.zeros(self.max_lens, self.state_length * frame_overlay * agent_num)
+        self.vect_state = np.zeros(self.max_lens, self.state_length * self.frame_overlay * self.agent_num)
+        self.next_vect_state = np.zeros(self.max_lens, self.state_length * self.frame_overlay * self.agent_num)
+        self.reward = np.zeros((self.max_lens, self.agent_num))
+        self.done = np.zeros((self.max_lens, self.agent_num))
 
         # state store for actor
-        self.vect = np.zeros((self.max_lens, self.state_length * self.frame_overlay))
-        self.next_vect = np.zeros((self.max_lens, self.state_length * self.frame_overlay))
-        self.reward = np.zeros((self.max_lens, 1))
-        self.action = np.zeros((self.max_lens, self.action_dim))
-        self.done = np.zeros((self.max_lens, 1))
+        self.vect = []
+        self.next_vect = []
+        self.action = []
+        for i in range(self.agent_num):
+            self.vect.append(np.zeros(self.max_lens, self.state_length * self.frame_overlay))
+            self.next_vect.append(np.zeros(self.max_lens, self.state_length * self.frame_overlay))
+            self.action.append(np.zeros(self.max_lens, self.state_length * self.frame_overlay))
 
-    def add(self, pixel, next_pixel, vect, next_vect, reward, action, done):
-        self.pixel[self.ptr] = pixel.astype(np.float32)
-        self.next_pixel[self.ptr] = next_pixel.astype(np.float32)
-        self.vect[self.ptr] = vect.astype(np.float32)
-        self.next_vect[self.ptr] = next_vect.astype(np.float32)
-        self.action[self.ptr] = action.astype(np.float32)
-        self.reward[self.ptr] = reward
-        self.done[self.ptr] = done
+    def add(self, vect, next_vect, reward, action, done):
+        self.vect_state[self.ptr] = vect.reshape(1, -1).astype(np.float32)
+        self.next_vect_state[self.ptr] = next_vect.reshape(1, -1).astype(np.float32)
+        self.reward[self.ptr] = reward.astype(np.float32)
+        self.done[self.ptr] = done.astype(np.float32)
+
+        for i in range(self.agent_num):
+            self.vect[i][self.ptr] = vect[i].astype(np.float32)
+            self.next_vect[i][self.ptr] = next_vect[i].astype(np.float32)
+            self.action[i][self.ptr] = action[i].astype(np.float32)
+
         self.ptr = (self.ptr + 1) % self.max_lens
         self.size = min(self.size + 1, self.max_lens)
 
     def get_batch(self, batch_size):
         ind = np.random.randint(0, self.size, size=batch_size)
 
-        # reward rms
-        reward = self.reward[ind]
-        # reward rms update
-        mean, std, count = reward.mean(), reward.std(), reward.shape[0]
-        self.rwd_rms.update_from_moments(mean, std**2, count)
-        reward = (reward - self.rwd_rms.mean) / (np.sqrt(self.rwd_rms.var) + 1e-4)
+        actor_vect = []
+        actor_next_vect = []
+        actor_action = []
+        for i in range(self.agent_num):
+            actor_vect.append(torch.FloatTensor(self.vect[i][ind]).to(self.device))
+            actor_next_vect.append(torch.FloatTensor(self.next_vect[i][ind]).to(self.device))
+            actor_action.append(torch.FloatTensor(self.action[i][ind]).to(self.device))
 
-        return (torch.FloatTensor(self.pixel[ind]).to(self.device),
-                torch.FloatTensor(self.next_pixel[ind]).to(self.device),
-                torch.FloatTensor(self.vect[ind]).to(self.device),
-                torch.FloatTensor(self.next_vect[ind]).to(self.device),
-                torch.FloatTensor(reward).to(self.device),
-                torch.FloatTensor(self.action[ind]).to(self.device),
+        return (actor_vect,
+                actor_next_vect,
+                actor_action,
+                torch.FloatTensor(self.vect_state[ind]).to(self.device),
+                torch.FloatTensor(self.next_vect_state[ind]).to(self.device),
+                torch.FloatTensor(self.reward[ind]).to(self.device),
                 torch.FloatTensor(self.done[ind]).to(self.device))
 
 class NormData:

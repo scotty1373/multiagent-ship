@@ -346,6 +346,7 @@ class RoutePlan(gym.Env, EzPickle):
         info_n['dis_closest'] = dis_closest
         self.state_store = raw_obs_n
         print(f"shipa_reward: {reward_n[0]}, shipb_reward: {reward_n[1]}")
+        # [todo: 确定obs_n, reward_n, done_term 数值存储统一使用list还是ndarray]
         return obs_n, reward_n, done_term, info_n
 
     def _set_action(self, act, idx):
