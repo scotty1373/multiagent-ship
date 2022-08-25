@@ -318,12 +318,22 @@ class RoutePlan(gym.Env, EzPickle):
         # x, y = np.meshgrid(np.linspace(0, 79, 80), np.linspace(0, 79, 80))
         # ax.plot_surface(x, y, self.heat_map.T, rstride=1, cstride=1, cmap='viridis', edgecolor='none')
         # plt.show()
-        return self.step(self.np_random.uniform(0, 0, size=(self.agent_num, 2)))
+        return self.step(self.np_random.uniform(0, 0, size=(self.agent_num, 1)))
 
     def step(self, action_samples: np.array):
-        assert action_samples.shape == (self.agent_num, 2)
-        action_samples[..., 0] = np.clip(action_samples[..., 0], 0, 1).astype('float32')
-        action_samples[..., 1] = np.clip(action_samples[..., 1], -1, 1).astype('float32')
+        """
+        # gym environment step
+        :param action_samples: -> action_samples.shape == (self.agent_num, action_dim)
+        :return: obs_n: np.ndarray -> obs_n.shape = (self.agent_num, state_dim)
+                 reward_n: np.ndarray -> reward_n.shape == (self.agent_num,)
+                 done_term: np.ndarray -> done_term.shape == (self.agent_num,)
+                 info: dict -> info.keys = ('done_coll', 'dis_closest')
+                               info['done_coll'].shape == (self.agent_num,)
+                               info['dis_closest'].shape == (self.agent_num,)\
+        """
+        assert action_samples.shape == (self.agent_num, 1)
+        # action_samples[..., 0] = np.clip(action_samples[..., 0], 0, 1).astype('float32')
+        action_samples[..., 0] = np.clip(action_samples[..., 0], -1, 1).astype('float32')
 
         # multi-agent 返回值统计
         obs_n = []
@@ -342,17 +352,27 @@ class RoutePlan(gym.Env, EzPickle):
             obs_n.append(obs)
         raw_obs_n = np.array(raw_obs_n)
         reward_n, done_term, done_coll, dis_closest = self._compute_done_reward(self.state_store, raw_obs_n)
-        info_n['done_coll'] = done_coll
-        info_n['dis_closest'] = dis_closest
         self.state_store = raw_obs_n
-        print(f"shipa_reward: {reward_n[0]}, shipb_reward: {reward_n[1]}")
+        # print(f"shipa_reward: {reward_n[0]}, shipb_reward: {reward_n[1]}")
         # [todo: 确定obs_n, reward_n, done_term 数值存储统一使用list还是ndarray]
+
+        obs_n = np.stack(obs_n, axis=0)
+        reward_n = np.array(reward_n)
+        done_term = np.array(done_term)
+        info_n['done_coll'] = np.array(done_coll)
+        info_n['dis_closest'] = dis_closest
         return obs_n, reward_n, done_term, info_n
 
     def _set_action(self, act, idx):
+        """
+        # 动作应用环境计算
+        :param act: np.ndarray -> act.shape == (self.agent_num, action_dim)
+        :param idx: int -> agent index
+        :return:
+        """
         """船体推进位置及动力大小计算"""
-        speed2ship = self.remap(act[idx, 0], MAIN_ENGINE_POWER)
-        orient2ship = self.remap(act[idx, 1], self.angle_limit)
+        # speed2ship = self.remap(act[idx, 0], MAIN_ENGINE_POWER)
+        orient2ship = self.remap(act[idx, 0], self.angle_limit)
         # 映射逆时针为正方向
         # agent.angle = np.clip(-b2_pi/6, b2_pi/6, orient2ship-agent.angle)
         self.ships[idx].angle = self.ships[idx].angle - orient2ship
@@ -438,6 +458,7 @@ class RoutePlan(gym.Env, EzPickle):
             else:
                 reward_corleg, _ = self.check_state.check_CORLEGs(state, next_state)
             reward = reward_done + reward_ang_keep + reward_coll + reward_cpa + reward_corleg
+            reward = self.norm.rwd_norm(reward, self.check_state.reward_max)
         return reward, self.ships_done, self.ships_coll, dis_closest
 
     def render(self, mode='human', hide=True):

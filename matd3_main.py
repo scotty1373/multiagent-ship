@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import argparse
+import os
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -40,7 +41,7 @@ def parse_args():
                         help='Pretrained?',
                         default=False,
                         type=bool)
-    parser.add_argument('--checkpoint',
+    parser.add_argument('--checkpoint_path',
                         help='If pre_trained is True, this option is pretrained ckpt path',
                         default='./log/1659972659/save_model_ep800.pth',
                         type=str)
@@ -58,18 +59,18 @@ def parse_args():
                         type=int)
     parser.add_argument('--frame_skipping',
                         help='random walk frame skipping',
-                        default=4,
+                        default=2,
                         type=int)
     parser.add_argument('--frame_overlay',
                         help='data frame overlay',
-                        default=4,
+                        default=1,
                         type=int)
     # parser.add_argument('--state_length',
     #                     help='state data vector length',
     #                     default=5+24*2)
     parser.add_argument('--state_length',
                         help='state data vector length',
-                        default=2+24*2,
+                        default=3,
                         type=int)
     parser.add_argument('--pixel_state',
                         help='Image-Based Status',
@@ -118,35 +119,29 @@ def main(args):
                                            agent_num=env.env.agent_num,
                                            device=device)
 
-    # 子线程显示当前环境heatmap
-    fig, ax1 = plt.subplots(1, 1)
-    sns.heatmap(env.env.heat_map.T, ax=ax1).invert_yaxis()
-    fig.suptitle('reward shaping heatmap')
-    tb_logger.add_figure('figure', fig)
-
     """初始化agent"""
     agent = MATD3(frame_overlay=args.frame_overlay,
                   state_length=args.state_length,
-                  action_dim=2,
+                  action_dim=1,
                   batch_size=args.batch_size,
-                  overlay=args.frame_overlay,
+                  agent_num=env.env.agent_num,
                   device=device,
                   train=args.train,
                   logger=tb_logger)
 
     # pretrained 选项，载入预训练模型
     if args.pre_train:
-        if args.checkpoint is not None:
+        if args.checkpoint_path is not None:
             checkpoint = args.checkpoint
             agent.load_model(checkpoint)
 
-    """初始化agent探索轨迹追踪"""
-    env.reset()
-    trace_image = env.render(mode='rgb_array')
-    trace_image = Image.fromarray(trace_image)
-    trace_path = ImageDraw.Draw(trace_image)
+    # """初始化agent探索轨迹追踪"""
+    # env.reset()
+    # trace_image = env.render(mode='rgb_array')
+    # trace_image = Image.fromarray(trace_image)
+    # trace_path = ImageDraw.Draw(trace_image)
 
-    done = True
+    done = [True] * agent.agent_num
     # ep_history = []
 
     # NameSpace
@@ -156,78 +151,84 @@ def main(args):
 
     epochs = tqdm(range(args.epochs), leave=False, position=0, colour='green')
     for epoch in epochs:
-        reward_history = 0
-        """***********这部分作为重置并没有起到训练连接的作用， 可删除if判断***********"""
-        if done:
+        reward_history = np.zeros((agent.agent_num,))
+        if any(done):
             """轨迹记录"""
-            trace_history, pixel_obs, obs, done = first_init(env, args)
+            _, obs, done = first_init(env, args)
 
         # timestep 样本收集
         steps = tqdm(range(0, args.max_timestep), leave=False, position=1, colour='red')
         for t in steps:
-            act = agent.get_action(pixel_obs, obs)
+            act = agent.get_action(obs)
             # 环境交互
-            pixel_obs_t1, obs_t1, reward, done, _ = env.step(act.squeeze())
+            obs_t1, reward, done, info = env.step(act)
+            done_coll = info['done_coll']
+            dis_closest = info['dis_closest']
 
             # 随机漫步如果为1则不进行数据庞拼接
             if args.frame_overlay == 1:
                 pass
             else:
                 obs_t1 = state_frame_overlay(obs_t1, obs, args.frame_overlay)
-                pixel_obs_t1 = pixel_based(pixel_obs_t1, pixel_obs, args.frame_overlay)
 
             if args.train:
                 # 达到最大timestep则认为单幕完成
                 if t == args.max_timestep - 1:
-                    done = True
+                    done = [True] * agent.agent_num
+                    done = np.array(done, dtype=bool)
                 # 状态存储
-                replay_buffer.add(pixel_obs, pixel_obs_t1, obs, obs_t1, reward, act, done)
+                replay_buffer.add(obs, obs_t1, reward, act, done)
                 agent.update(replay_buffer)
 
             # 记录timestep, reward＿sum
             agent.t += 1
             obs = obs_t1
-            pixel_obs = pixel_obs_t1
             reward_history += reward
 
-            trace_history.append(tuple(trace_trans(env.env.ship.position)))
+            # trace_history.append(tuple(trace_trans(env.env.ship.position)))
             steps.set_description(f"epochs: {epoch}, "
                                   f"time_step: {agent.t}, "
-                                  f"ep_reward: {reward_history}, "
-                                  f"acc: {act[..., 0].item():.2f}, "
-                                  f"ori: {act[..., 1].item():.2f}, "
-                                  f"reward: {reward:.2f}, "
-                                  f"done: {done}, "
-                                  f"actor_loss: {agent.actor_loss_history:.2f}, "
-                                  f"critic_loss: {agent.critic_loss_history:.2f}")
+                                  f"ep_reward_agent1: {reward_history[0].item():.2f}, "
+                                  f"ep_reward_agent2: {reward_history[1].item():.2f}, "
+                                  f"ori_agent1: {act[0, 0].item():.2f}, "
+                                  f"ori_agent2: {act[1, 0].item():.2f}, "
+                                  f"reward_agent1: {reward[0]:.2f}, "
+                                  f"reward_agent2: {reward[1]:.2f}, "
+                                  f"done_agent1: {done[0]}, "
+                                  f"done_agent2: {done[1]}, "
+                                  f"actor_loss: {agent.loss_history_actor:.2f}, "
+                                  f"critic_loss: {agent.loss_history_critic:.2f}")
 
             # 单幕数据收集完毕
-            if done:
+            if any(done):
                 # 单幕结束显示轨迹
-                trace_path.line(trace_history, width=1, fill='black')
-                trace_history, pixel_obs, obs, done = first_init(env, args)
+                _, obs, done = first_init(env, args)
 
         # ep_history.append(reward_history)
         # log_ep_text = {'epochs': epoch,
         #                'time_step': agent.t,
         #                'ep_reward': reward_history}
         agent.ep += 1
-        agent.reset_noise()
 
         # tensorboard logger
-        tb_logger.add_scalar(tag=f'Reward/ep_reward',
-                             scalar_value=reward_history,
-                             global_step=epoch)
-        tb_logger.add_image(tag=f'Image/Trace',
-                            img_tensor=np.array(trace_image),
-                            global_step=epoch,
-                            dataformats='HWC')
+        for agent_idx in range(agent.agent_num):
+            tb_logger.add_scalar(tag=f'Reward/ep_reward_agent_{agent_idx}',
+                                 scalar_value=reward_history[agent_idx],
+                                 global_step=epoch)
+        # tb_logger.add_image(tag=f'Image/Trace',
+        #                     img_tensor=np.array(trace_image),
+        #                     global_step=epoch,
+        #                     dataformats='HWC')
+
         # 环境重置
         if not epoch % 25:
             env.close()
-            env = RoutePlan(barrier_num=EnvBarrierReset(epoch, start_barrier_num=3, train=args.train), seed=seed, ship_pos_fixed=True)
+            env = RoutePlan(mode=args.mode, seed=seed)
             env = SkipEnvFrame(env, args.frame_skipping)
-            agent.save_model(f'./log/{TIMESTAMP}/save_model_ep{epoch}.pth')
+            agent_save_path = f'./log/{TIMESTAMP}/save_model_ep{epoch}'
+            if not os.path.exists(agent_save_path):
+                os.mkdir(agent_save_path)
+            agent.save_model(agent_save_path)
     env.close()
     tb_logger.close()
 

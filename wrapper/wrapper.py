@@ -5,6 +5,7 @@
 # @Software : PyCharm
 import gym
 from utils_tools.utils import RunningMeanStd, img_proc
+import numpy as np
 
 
 class VecNormalize(gym.Wrapper):
@@ -50,18 +51,18 @@ class SkipEnvFrame(gym.Wrapper):
     def __init__(self, env, skip=3):
         super(SkipEnvFrame, self).__init__(env)
         self._skip = skip
+        self._agent_num = self.env.agent_num
 
     def step(self, action):
-        total_reward = 0.0
-        done, pixel, obs, info = None, None, None, None
+        total_reward = np.zeros((self._agent_num,))
+        done, reward, obs, info = None, None, None, None
         for i in range(self._skip):
             obs, reward, done, info = self.env.step(action)
             self.env.render()
             total_reward += reward
-            if done:
+            if any(done):
                 break
-        pixel = self.env.render()
-        return img_proc(pixel), obs, reward, done, info
+        return obs, reward, done, info
 
     def reset(self, **kwargs):
         return self.env.reset(**kwargs)

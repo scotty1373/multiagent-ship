@@ -29,7 +29,7 @@ ship_action_space = 1
 angle_limit = math.radians(30)  # heading angle changing range (-30, 30)
 
 # distance redundant
-dis_redundant = 20
+dis_redundant = 100
 
 # --------------------------------------------------
 # calculate below data based on given data

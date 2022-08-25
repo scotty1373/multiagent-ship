@@ -25,9 +25,13 @@ def trace_trans(vect, *, ratio=IMG_SIZE_RENDEER/16):
 
 # 数据帧叠加
 def state_frame_overlay(new_state, old_state, frame_num):
-    new_frame_overlay = np.concatenate((new_state.reshape(1, -1),
-                                        old_state.reshape(frame_num, -1)[:(frame_num - 1), ...]),
-                                       axis=0).reshape(1, -1)
+    agent_num = len(new_state)
+    new_frame_overlay = []
+    for agent_idx in range(agent_num):
+        new_frame_overlay.append(np.concatenate((new_state[agent_idx].reshape(1, -1),
+                                                 old_state[agent_idx].reshape(frame_num, -1)[:(frame_num - 1), ...]),
+                                                axis=0).reshape(1, -1))
+    new_frame_overlay = np.concatenate(new_frame_overlay, axis=0)
     return new_frame_overlay
 
 
@@ -72,13 +76,14 @@ def record(global_ep, global_ep_r, ep_r, res_queue, worker_ep, name, idx):
 
 def first_init(env, args):
     trace_history = []
+    obs_cat = []
     # 类装饰器不改变类内部调用方式
     obs, _, done, _ = env.reset()
-    '''利用广播机制初始化state帧叠加结构，不使用stack重复对数组进行操作'''
-    obs = (np.ones((args.frame_overlay, args.state_length)) * obs).reshape(1, -1)
-    pixel_obs_ori = env.render(mode='rgb_array')
-    pixel_obs = img_proc(pixel_obs_ori) * np.ones((1, args.frame_overlay, 80, 80))
-    return trace_history, pixel_obs, obs, done
+    for idx in range(env.env.agent_num):
+        '''利用广播机制初始化state帧叠加结构，不使用stack重复对数组进行操作'''
+        obs_cat.append((np.ones((args.frame_overlay, args.state_length)) * obs[idx]).reshape(1, -1))
+    obs_cat = np.concatenate(obs_cat, axis=0)
+    return trace_history, obs_cat, done
 
 
 def cut_requires_grad(params):
@@ -140,8 +145,8 @@ class MultiAgentReplayBuffer:
         self.device = device
 
         # state store for critic
-        self.vect_state = np.zeros(self.max_lens, self.state_length * self.frame_overlay * self.agent_num)
-        self.next_vect_state = np.zeros(self.max_lens, self.state_length * self.frame_overlay * self.agent_num)
+        self.vect_state = np.zeros((self.max_lens, self.state_length * self.frame_overlay * self.agent_num))
+        self.next_vect_state = np.zeros((self.max_lens, self.state_length * self.frame_overlay * self.agent_num))
         self.reward = np.zeros((self.max_lens, self.agent_num))
         self.done = np.zeros((self.max_lens, self.agent_num))
 
@@ -150,9 +155,9 @@ class MultiAgentReplayBuffer:
         self.next_vect = []
         self.action = []
         for i in range(self.agent_num):
-            self.vect.append(np.zeros(self.max_lens, self.state_length * self.frame_overlay))
-            self.next_vect.append(np.zeros(self.max_lens, self.state_length * self.frame_overlay))
-            self.action.append(np.zeros(self.max_lens, self.state_length * self.frame_overlay))
+            self.vect.append(np.zeros((self.max_lens, self.state_length * self.frame_overlay)))
+            self.next_vect.append(np.zeros((self.max_lens, self.state_length * self.frame_overlay)))
+            self.action.append(np.zeros((self.max_lens, self.action_dim)))
 
     def add(self, vect, next_vect, reward, action, done):
         self.vect_state[self.ptr] = vect.reshape(1, -1).astype(np.float32)
