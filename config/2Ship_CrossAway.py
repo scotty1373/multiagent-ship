@@ -14,13 +14,13 @@ ships_length = np.zeros((ships_num, 1))
 
 ships_init[0, :] = np.array([-800, 200])
 ships_goal[0, :] = np.array([800, 1800])
-ships_speed[0] = 10
+ships_speed[0] = 5
 ships_head[0] = 45
 ships_length[0] = 50
 
 ships_init[1, :] = np.array([800, 200])
 ships_goal[1, :] = np.array([-800, 1800])
-ships_speed[1] = 10
+ships_speed[1] = 5
 ships_head[1] = 135
 ships_length[1] = 50
 

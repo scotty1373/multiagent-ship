@@ -40,13 +40,13 @@ class ActionCriticModel(nn.Module):
             nn.Linear(self.state_dim+self.action_dim, 400),
             nn.ReLU(inplace=True)
         )
-        self.fc_action = nn.Sequential(
-            nn.Linear(self.action_dim, 200),
-            nn.ReLU(inplace=True)
-        )
+        # self.fc_action = nn.Sequential(
+        #     nn.Linear(self.action_dim, 200),
+        #     nn.ReLU(inplace=True)
+        # )
         # q1 network
         self.fc1_q1 = nn.Sequential(
-            orthogonal_init(nn.Linear(400+200, 300), gain=np.sqrt(2)),
+            orthogonal_init(nn.Linear(400, 300), gain=np.sqrt(2)),
             nn.ReLU(inplace=True))
         self.fc2_q1 = nn.Sequential(
             orthogonal_init(nn.Linear(300, 64), gain=0.01),
@@ -55,7 +55,7 @@ class ActionCriticModel(nn.Module):
 
         # q2 network
         self.fc1_q2 = nn.Sequential(
-            orthogonal_init(nn.Linear(400+200, 300), gain=np.sqrt(2)),
+            orthogonal_init(nn.Linear(400, 300), gain=np.sqrt(2)),
             nn.ReLU(inplace=True))
         self.fc2_q2 = nn.Sequential(
             orthogonal_init(nn.Linear(300, 64), gain=0.01),
@@ -65,26 +65,26 @@ class ActionCriticModel(nn.Module):
     def forward(self, state_vect, action):
         fusion_vect = torch.cat((state_vect, action), dim=-1)
         fusion_state = self.fc_state(fusion_vect)
-        action_vect = self.fc_action(action)
-        fusion_common = torch.cat((fusion_state, action_vect), dim=-1)
+        # action_vect = self.fc_action(action)
+        # fusion_common = torch.cat((fusion_state, action_vect), dim=-1)
 
         # q1 network
-        q1_critic = self.fc1_q1(fusion_common)
+        q1_critic = self.fc1_q1(fusion_state)
         q1_critic = self.fc2_q1(q1_critic)
 
         # q2 network
-        q2_critic = self.fc1_q2(fusion_common)
+        q2_critic = self.fc1_q2(fusion_state)
         q2_critic = self.fc2_q2(q2_critic)
         return q1_critic, q2_critic
 
     def q_theta1(self, state_vect, action):
         fusion_vect = torch.cat((state_vect, action), dim=-1)
         fusion_state = self.fc_state(fusion_vect)
-        action_vect = self.fc_action(action)
-        fusion_common = torch.cat((fusion_state, action_vect), dim=-1)
+        # action_vect = self.fc_action(action)
+        # fusion_common = torch.cat((fusion_state, action_vect), dim=-1)
 
         # q1 network
-        q1_critic = self.fc1_q1(fusion_common)
+        q1_critic = self.fc1_q1(fusion_state)
         q1_critic = self.fc2_q1(q1_critic)
         return q1_critic
 

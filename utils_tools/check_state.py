@@ -26,12 +26,18 @@ class CheckState:
         self.angle_limit = mode.angle_limit
         # collision distance在当前行船轨迹投影界限
         self.dis_r = mode.dis_redundant
-        self.dis_c = mode.ship_max_length / 2 + mode.ship_max_speed * 1
-        self.dis_c_h = mode.ship_max_length / 2 + mode.ship_max_speed * 5
+        self.dis_c = mode.ship_max_length / 2 + mode.ship_max_speed * 2
+        self.dis_c_h = mode.ship_max_length / 2 + mode.ship_max_speed * 7
         self.dis_c_hn = mode.ship_max_speed * 1
         # DCPA计算区间
         self.dis_c1 = self.dis_c * 5
         self.dis_c2 = self.dis_c
+
+        # 记录距离
+        self.dist_record = np.zeros((self.agents_num,))
+        for i in range(self.agents_num):
+            self.dist_record[i] = euc_dist(self.pos_init[i, 0], self.pos_term[i, 0],
+                                           self.pos_init[i, 1], self.pos_term[i, 1])
 
         if self.agents_num > 1:
             distance = []
@@ -48,11 +54,11 @@ class CheckState:
                     self.rules_table[ship_i, ship_j] = 'Null'
 
         self.max_reward_rela_ang = 20
-        self.reward_alive = 1
+        self.reward_alive = 20
         self.reward_max = self.max_reward_rela_ang + self.reward_alive
         if self.agents_num > 1:
             self.max_reward_CPA = 10
-            self.max_reward_COLREGs = 50
+            self.max_reward_COLREGs = 70
             self.reward_max = self.reward_max + self.max_reward_CPA + self.max_reward_COLREGs
 
     def check_done(self, next_state, done_term):
@@ -72,8 +78,8 @@ class CheckState:
                                        self.pos_term[ship_idx, 0], self.pos_term[ship_idx, 1])
             # 船体运动朝向与目标方向夹角
             dif_ang = abs(next_state[ship_idx, 2] - ang_to_term)
-            if dif_ang > 360:
-                dif_ang -= 360
+            if dif_ang > 180:
+                dif_ang = 360 - dif_ang
 
             if not done_term[ship_idx]:
                 if dis_to_goal < self.dis_r:
@@ -89,7 +95,7 @@ class CheckState:
                 else:
                     done_term[ship_idx] = False
                     # punishment for living
-                    reward_done[ship_idx] = -self.reward_alive
+                    reward_done[ship_idx] += -self.reward_alive
         return reward_done
 
     def check_rela_ang(self, next_state):
@@ -105,15 +111,17 @@ class CheckState:
                                        self.pos_term[ship_idx, 0], self.pos_term[ship_idx, 1])
             # 船体运动朝向与目标方向夹角
             dif_ang = abs(next_state[ship_idx, 2] - ang_to_term)
-            if dif_ang > 360:
-                dif_ang -= 360
+            if dif_ang > 180:
+                dif_ang = 360 - dif_ang
+            # if dif_ang > 360:
+            #     dif_ang -= 360
 
             if dif_ang < 5:
                 reward_rela_ang[ship_idx] = self.max_reward_rela_ang
             elif 5 <= dif_ang < 30:
                 reward_rela_ang[ship_idx] = 0
             else:
-                reward_rela_ang[ship_idx] = -self.max_reward_rela_ang
+                reward_rela_ang[ship_idx] = -self.max_reward_rela_ang * (dif_ang / 180)
         return reward_rela_ang
 
     def check_coll(self, next_state, ships_coll):

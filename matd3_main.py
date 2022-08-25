@@ -47,7 +47,7 @@ def parse_args():
                         type=str)
     parser.add_argument('--max_timestep',
                         help='Maximum time step in a single epoch',
-                        default=512,
+                        default=256,
                         type=int)
     parser.add_argument('--seed',
                         help='environment initialization seed',

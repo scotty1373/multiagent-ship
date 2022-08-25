@@ -152,8 +152,8 @@ class RoutePlan(gym.Env, EzPickle):
         self.state_store = None
         self.norm = NormData()
         self.check_state = CheckState(self.mode)
-        self.ships_done = [False] * self.agent_num
-        self.ships_coll = [False] * self.agent_num
+        self.ships_done = np.array([False] * self.agent_num, dtype=bool)
+        self.ships_coll = np.array([False] * self.agent_num, dtype=bool)
 
         # Raycast船体半径
         self.ship_radius = 0.36*element_wise_weight
@@ -207,26 +207,26 @@ class RoutePlan(gym.Env, EzPickle):
         self.time_step = 0
         self.state_store = None
         # 终止状态重置
-        self.ships_done = [False] * self.agent_num
-        self.ships_coll = [False] * self.agent_num
+        self.ships_done = np.array([False] * self.agent_num, dtype=bool)
+        self.ships_coll = np.array([False] * self.agent_num, dtype=bool)
 
         # 重建环境
         W = VIEWPORT_W / SCALE
         H = VIEWPORT_H / SCALE
         """设置边界范围"""
-        self.ground = self.world.CreateBody(position=(0, VIEWPORT_H/SCALE/2))
-        self.ground.CreateEdgeFixture(vertices=[(-VIEWPORT_W/SCALE/2, VIEWPORT_H/SCALE/2),
-                                                (-VIEWPORT_W/SCALE/2, -VIEWPORT_H/SCALE/2),
-                                                (VIEWPORT_W/SCALE/2, -VIEWPORT_H/SCALE/2),
-                                                (VIEWPORT_W/SCALE/2, VIEWPORT_H/SCALE/2)],
-                                      friction=1.0,
-                                      density=1.0)
-        self.ground.CreateEdgeChain(
-            [(-VIEWPORT_W/SCALE/2, VIEWPORT_H/SCALE/2),
-             (-VIEWPORT_W/SCALE/2, -VIEWPORT_H/SCALE/2),
-             (VIEWPORT_W/SCALE/2, -VIEWPORT_H/SCALE/2),
-             (VIEWPORT_W/SCALE/2, VIEWPORT_H/SCALE/2),
-             (-VIEWPORT_W/SCALE/2, VIEWPORT_H/SCALE/2)])
+        # self.ground = self.world.CreateBody(position=(0, VIEWPORT_H/SCALE/2))
+        # self.ground.CreateEdgeFixture(vertices=[(-VIEWPORT_W/SCALE/2, VIEWPORT_H/SCALE/2),
+        #                                         (-VIEWPORT_W/SCALE/2, -VIEWPORT_H/SCALE/2),
+        #                                         (VIEWPORT_W/SCALE/2, -VIEWPORT_H/SCALE/2),
+        #                                         (VIEWPORT_W/SCALE/2, VIEWPORT_H/SCALE/2)],
+        #                               friction=1.0,
+        #                               density=1.0)
+        # self.ground.CreateEdgeChain(
+        #     [(-VIEWPORT_W/SCALE/2, VIEWPORT_H/SCALE/2),
+        #      (-VIEWPORT_W/SCALE/2, -VIEWPORT_H/SCALE/2),
+        #      (VIEWPORT_W/SCALE/2, -VIEWPORT_H/SCALE/2),
+        #      (VIEWPORT_W/SCALE/2, VIEWPORT_H/SCALE/2),
+        #      (-VIEWPORT_W/SCALE/2, VIEWPORT_H/SCALE/2)])
 
         """暗礁生成"""
         """
@@ -279,14 +279,15 @@ class RoutePlan(gym.Env, EzPickle):
 
             """抵达点生成"""
             # 设置抵达点位置
-            circle_shape = b2PolygonShape(vertices=[(x/SCALE*10, y/SCALE*10) for x, y in REACH_POLY])
+            circle_shape = b2PolygonShape(vertices=[(x/SCALE*5, y/SCALE*5) for x, y in REACH_POLY])
             reach_area = self.world.CreateStaticBody(position=self.ships_goal[idx],
                                                      fixtures=b2FixtureDef(
                                                          shape=circle_shape)
                                                      )
             reach_area.color = ship.color_bg
             self.term_points.append(reach_area)
-        self.draw_list = self.ships + [self.ground] + self.term_points
+        # self.draw_list = self.ships + [self.ground] + self.term_points
+        self.draw_list = self.ships + self.term_points
         """
         # reward Heatmap构建
         # 使heatmap只生成一次
@@ -375,7 +376,9 @@ class RoutePlan(gym.Env, EzPickle):
         orient2ship = self.remap(act[idx, 0], self.angle_limit)
         # 映射逆时针为正方向
         # agent.angle = np.clip(-b2_pi/6, b2_pi/6, orient2ship-agent.angle)
-        self.ships[idx].angle = self.ships[idx].angle - orient2ship
+        self.ships[idx].angle = wrap_to_pi(self.ships[idx].angle + orient2ship)
+        if not idx:
+            print(f'angle: {self.ships[idx].angle}, orient: {math.degrees(orient2ship)}')
 
         self.ships[idx].position[0] = math.cos(self.ships[idx].angle)*self.ships_speed[idx].item() + self.ships[idx].position[0]
         self.ships[idx].position[1] = math.sin(self.ships[idx].angle)*self.ships_speed[idx].item() + self.ships[idx].position[1]
@@ -400,9 +403,9 @@ class RoutePlan(gym.Env, EzPickle):
                 sensor_raycast['points'][vect] = callback.point
                 sensor_raycast['normal'][vect] = callback.normal
                 if callback.fixture == self.term_points[idx].fixtures[0]:
-                    sensor_raycast['distance'][vect] = (3, Distance_Cacul(point1, callback.point) - self.ship_radius)
-                elif callback.fixture in self.ground.fixtures:
                     sensor_raycast['distance'][vect] = (2, Distance_Cacul(point1, callback.point) - self.ship_radius)
+                # elif callback.fixture in self.ground.fixtures:
+                #     sensor_raycast['distance'][vect] = (2, Distance_Cacul(point1, callback.point) - self.ship_radius)
                 else:
                     sensor_raycast['distance'][vect] = (1, Distance_Cacul(point1, callback.point) - self.ship_radius)
             else:
@@ -452,6 +455,7 @@ class RoutePlan(gym.Env, EzPickle):
             reward = reward_done + reward_ang_keep
         else:
             reward_coll, dis_closest = self.check_state.check_coll(next_state, self.ships_coll)
+            self.ships_done = self.ships_done | self.ships_coll
             reward_cpa = self.check_state.check_CPA(next_state)
             if self.time_step == 0:
                 reward_corleg = 0.0

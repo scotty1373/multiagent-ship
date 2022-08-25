@@ -13,8 +13,8 @@ from itertools import chain
 from models.multi_agnet_model import ActorModel, ActionCriticModel
 from utils_tools.utils import RunningMeanStd, cut_requires_grad
 
-DISTRIBUTION_INDEX = [0, 0.5]
-ENV_RESET_BOUND = [50, 150, 300, 500]
+DISTRIBUTION_INDEX = [0, 0.3]
+
 
 class Agent:
     def __init__(self, state_dim, action_dim, agent_num, device, agent_idx, train=True, logger=None):
@@ -30,12 +30,12 @@ class Agent:
         # 初始化actor + 双q网络
         self._init()
         self.tua = 0.01
-        self.lr_actor = 1e-5
-        self.lr_critic = 1e-5
-        self.discount_index = 0.95
-        self.smooth_regular = 0.2
+        self.lr_actor = 1e-4
+        self.lr_critic = 1e-4
+        self.discount_index = 0.98
+        self.smooth_regular = 0.1
         self.noise = Normal(DISTRIBUTION_INDEX[0], DISTRIBUTION_INDEX[1])
-        self.target_model_regular_noise = Normal(0, 0.2)
+        self.target_model_regular_noise = Normal(0, 0.1)
 
         # optimizer init
         self.actor_opt = torch.optim.Adam(params=self.actor_model.parameters(), lr=self.lr_actor)

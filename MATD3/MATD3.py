@@ -81,8 +81,10 @@ class MATD3:
             if self.t % self.delay_update == 0:
                 actor_loss += self.action_update(vect_state=vect_state, actor_vect=actor_vect, agent_idx=idx)
                 with torch.no_grad():
-                    self.agent_list[idx].model_soft_update(self.agent_list[idx].actor_target, self.agent_list[idx].actor_model)
-                    self.agent_list[idx].model_soft_update(self.agent_list[idx].critic_target, self.agent_list[idx].critic_model)
+                    self.agent_list[idx].model_soft_update(self.agent_list[idx].actor_model,
+                                                           self.agent_list[idx].actor_target)
+                    self.agent_list[idx].model_soft_update(self.agent_list[idx].critic_model,
+                                                           self.agent_list[idx].critic_target)
 
         self.logger.add_scalar(tag='actor_loss',
                                scalar_value=critic_loss,
