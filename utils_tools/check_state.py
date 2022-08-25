@@ -1,6 +1,9 @@
 """
 Code for checking ship states, return reward.
 """
+import math
+import time
+
 from utils_tools.functions import *
 
 
@@ -229,7 +232,11 @@ class CheckState:
                     if (self.rules_table[ship_i, ship_j] == 'HO-G' or
                             self.rules_table[ship_i, ship_j] == 'CR-G'):
                         # Ship steered starboard (negative head_diff)
-                        reward_CORLEGs[ship_i] -= (head_diff[ship_i] / self.angle_limit) * self.max_reward_COLREGs
+                        # reward_CORLEGs[ship_i] -= (head_diff[ship_i] / self.angle_limit) * self.max_reward_COLREGs
+                        if -1.5 < head_diff[ship_i] < 0:
+                            reward_CORLEGs[ship_i] += self.max_reward_COLREGs
+                        else:
+                            reward_CORLEGs[ship_i] -= abs(head_diff[ship_i]) / self.angle_limit * self.max_reward_COLREGs
                     elif self.rules_table[ship_i, ship_j] == 'OT-G':
                         if abs(head_diff[ship_i]) == 0:
                             reward_CORLEGs[ship_i] -= self.max_reward_COLREGs
@@ -239,10 +246,10 @@ class CheckState:
                     elif (self.rules_table[ship_i, ship_j] == 'OT-S' or
                             self.rules_table[ship_i, ship_j] == 'CR-S'):
                         # stand-on: The smaller heading angles change, the better rewards
-                        if abs(head_diff[ship_i]) == 0:
-                            reward_CORLEGs[ship_i] += self.max_reward_COLREGs
-                        else:
-                            reward_CORLEGs[ship_i] -= abs(head_diff[ship_i]) / self.angle_limit * self.max_reward_COLREGs
+                        # if abs(head_diff[ship_i]) < 0.5:
+                        #     reward_CORLEGs[ship_i] += self.max_reward_COLREGs
+                        # else:
+                        reward_CORLEGs[ship_i] -= abs(head_diff[ship_i]) / self.angle_limit * self.max_reward_COLREGs
                     else:
                         ang_to_term = true_bearing(next_state[ship_i, 0], next_state[ship_i, 1],
                                                    self.pos_term[ship_i, 0], self.pos_term[ship_i, 1])
@@ -256,4 +263,6 @@ class CheckState:
                             reward_CORLEGs[ship_i] += 0
                         else:
                             reward_CORLEGs[ship_i] -= self.max_reward_COLREGs
+        if reward_CORLEGs.max() > 70 or reward_CORLEGs.min() < -70:
+            time.time()
         return reward_CORLEGs, self.rules_table

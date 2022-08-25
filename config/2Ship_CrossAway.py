@@ -26,7 +26,7 @@ ships_length[1] = 50
 
 # actions of ships
 ship_action_space = 1
-angle_limit = math.radians(30)  # heading angle changing range (-30, 30)
+angle_limit = 10  # heading angle changing range (-30, 30)
 
 # distance redundant
 dis_redundant = 100

@@ -357,6 +357,8 @@ class RoutePlan(gym.Env, EzPickle):
         # print(f"shipa_reward: {reward_n[0]}, shipb_reward: {reward_n[1]}")
         # [todo: 确定obs_n, reward_n, done_term 数值存储统一使用list还是ndarray]
 
+        self.time_step += 1
+
         obs_n = np.stack(obs_n, axis=0)
         reward_n = np.array(reward_n)
         done_term = np.array(done_term)
@@ -373,12 +375,12 @@ class RoutePlan(gym.Env, EzPickle):
         """
         """船体推进位置及动力大小计算"""
         # speed2ship = self.remap(act[idx, 0], MAIN_ENGINE_POWER)
-        orient2ship = self.remap(act[idx, 0], self.angle_limit)
+        orient2ship = self.remap(act[idx, 0], math.radians(self.angle_limit))
         # 映射逆时针为正方向
         # agent.angle = np.clip(-b2_pi/6, b2_pi/6, orient2ship-agent.angle)
         self.ships[idx].angle = wrap_to_pi(self.ships[idx].angle + orient2ship)
-        if not idx:
-            print(f'angle: {self.ships[idx].angle}, orient: {math.degrees(orient2ship)}')
+        # if not idx:
+        #     print(f'angle: {self.ships[idx].angle}, orient: {math.degrees(orient2ship)}')
 
         self.ships[idx].position[0] = math.cos(self.ships[idx].angle)*self.ships_speed[idx].item() + self.ships[idx].position[0]
         self.ships[idx].position[1] = math.sin(self.ships[idx].angle)*self.ships_speed[idx].item() + self.ships[idx].position[1]
@@ -463,6 +465,9 @@ class RoutePlan(gym.Env, EzPickle):
                 reward_corleg, _ = self.check_state.check_CORLEGs(state, next_state)
             reward = reward_done + reward_ang_keep + reward_coll + reward_cpa + reward_corleg
             reward = self.norm.rwd_norm(reward, self.check_state.reward_max)
+            # debug位
+            if reward.min() < -1 or reward.max() > 1:
+                time.time()
         return reward, self.ships_done, self.ships_coll, dis_closest
 
     def render(self, mode='human', hide=True):
