@@ -143,6 +143,7 @@ class MATD3:
             agent.load_model(agent_ckpt_name)
 
     def save_model(self, ckpt_path):
+        ckpt_epoch = int(ckpt_path.split('/')[-1].split('_')[-1][2:])
         for idx, agent in enumerate(self.agent_list):
             agent_ckpt_name = ckpt_path + "/" + f'save_model_ep{self.ep}_agent{idx}.pth'
             agent.save_model(agent_ckpt_name)

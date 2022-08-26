@@ -152,7 +152,7 @@ def colregs_rule(ship1_x, ship1_y, ship1_psi, ship1_u, ship2_x, ship2_y, ship2_p
     # RB_ts_os: Relative bearing of OS from TS
     RB_ts_os = relative_bearing(ship2_x, ship2_y, ship2_psi, ship1_x, ship1_y)
     # Head on, give away
-    if abs(RB_os_ts) < 13 and abs(RB_ts_os) < 13:
+    if abs(RB_os_ts) < 50 and abs(RB_ts_os) < 50:
         rule = 'HO-GW'
     # Overtaking, give way
     elif abs(RB_ts_os) > 112.5 and abs(RB_os_ts) < 45 and (ship2_u > (ship1_u * 1.1)):

@@ -43,7 +43,7 @@ def parse_args():
                         type=bool)
     parser.add_argument('--checkpoint_path',
                         help='If pre_trained is True, this option is pretrained ckpt path',
-                        default='./log/1659972659/save_model_ep800.pth',
+                        default='./log/1661474710/save_model_ep600',
                         type=str)
     parser.add_argument('--max_timestep',
                         help='Maximum time step in a single epoch',
@@ -63,7 +63,7 @@ def parse_args():
                         type=int)
     parser.add_argument('--frame_overlay',
                         help='data frame overlay',
-                        default=1,
+                        default=4,
                         type=int)
     # parser.add_argument('--state_length',
     #                     help='state data vector length',
@@ -132,9 +132,8 @@ def main(args):
     # pretrained 选项，载入预训练模型
     if args.pre_train:
         if args.checkpoint_path is not None:
-            checkpoint = args.checkpoint
+            checkpoint = args.checkpoint_path
             agent.load_model(checkpoint)
-
     # """初始化agent探索轨迹追踪"""
     # env.reset()
     # trace_image = env.render(mode='rgb_array')
@@ -186,18 +185,18 @@ def main(args):
             reward_history += reward
 
             # trace_history.append(tuple(trace_trans(env.env.ship.position)))
-            steps.set_description(f"epochs: {epoch}, "
-                                  f"time_step: {agent.t}, "
-                                  f"ep_reward_agent1: {reward_history[0].item():.2f}, "
-                                  f"ep_reward_agent2: {reward_history[1].item():.2f}, "
-                                  f"ori_agent1: {act[0, 0].item():.2f}, "
-                                  f"ori_agent2: {act[1, 0].item():.2f}, "
-                                  f"reward_agent1: {reward[0]:.2f}, "
-                                  f"reward_agent2: {reward[1]:.2f}, "
-                                  f"done_agent1: {done[0]}, "
-                                  f"done_agent2: {done[1]}, "
-                                  f"actor_loss: {agent.loss_history_actor:.2f}, "
-                                  f"critic_loss: {agent.loss_history_critic:.2f}")
+            # steps.set_description(f"epochs: {epoch}, "
+            #                       f"time_step: {agent.t}, "
+            #                       f"ep_reward_agent1: {reward_history[0].item():.2f}, "
+            #                       f"ep_reward_agent2: {reward_history[1].item():.2f}, "
+            #                       f"ori_agent1: {act[0, 0].item():.2f}, "
+            #                       f"ori_agent2: {act[1, 0].item():.2f}, "
+            #                       f"reward_agent1: {reward[0]:.2f}, "
+            #                       f"reward_agent2: {reward[1]:.2f}, "
+            #                       f"done_agent1: {done[0]}, "
+            #                       f"done_agent2: {done[1]}, "
+            #                       f"actor_loss: {agent.loss_history_actor:.2f}, "
+            #                       f"critic_loss: {agent.loss_history_critic:.2f}")
 
             # 单幕数据收集完毕
             if any(done):
@@ -208,7 +207,6 @@ def main(args):
         # log_ep_text = {'epochs': epoch,
         #                'time_step': agent.t,
         #                'ep_reward': reward_history}
-        agent.ep += 1
 
         # tensorboard logger
         for agent_idx in range(agent.agent_num):
@@ -229,6 +227,8 @@ def main(args):
             if not os.path.exists(agent_save_path):
                 os.mkdir(agent_save_path)
             agent.save_model(agent_save_path)
+
+        agent.ep += 1
     env.close()
     tb_logger.close()
 
