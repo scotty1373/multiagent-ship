@@ -240,8 +240,12 @@ class CheckState:
                     elif self.rules_table[ship_i, ship_j] == 'OT-G':
                         if abs(head_diff[ship_i]) == 0:
                             reward_CORLEGs[ship_i] -= self.max_reward_COLREGs
-                        else:
+                        # 追越右向舵优先
+                        elif -2 * self.angle_limit < head_diff[ship_i] < -0.5:
                             reward_CORLEGs[ship_i] += (abs(head_diff[ship_i]) / self.angle_limit) \
+                                                      * self.max_reward_COLREGs
+                        else:
+                            reward_CORLEGs[ship_i] -= (abs(head_diff[ship_i]) / self.angle_limit) \
                                                       * self.max_reward_COLREGs
                     elif (self.rules_table[ship_i, ship_j] == 'OT-S' or
                             self.rules_table[ship_i, ship_j] == 'CR-S'):

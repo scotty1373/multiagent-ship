@@ -26,7 +26,7 @@ def parse_args():
     parser = argparse.ArgumentParser(
         description='MATD3 config option')
     parser.add_argument('--mode',
-                        default='2Ship_CrossAway',
+                        default='2Ship_Overtaking',
                         type=str,
                         help='environment name')
     parser.add_argument('--epochs',
@@ -55,7 +55,7 @@ def parse_args():
                         type=int)
     parser.add_argument('--batch_size',
                         help='training batch size',
-                        default=64,
+                        default=128,
                         type=int)
     parser.add_argument('--frame_skipping',
                         help='random walk frame skipping',
@@ -185,18 +185,18 @@ def main(args):
             reward_history += reward
 
             # trace_history.append(tuple(trace_trans(env.env.ship.position)))
-            # steps.set_description(f"epochs: {epoch}, "
-            #                       f"time_step: {agent.t}, "
-            #                       f"ep_reward_agent1: {reward_history[0].item():.2f}, "
-            #                       f"ep_reward_agent2: {reward_history[1].item():.2f}, "
-            #                       f"ori_agent1: {act[0, 0].item():.2f}, "
-            #                       f"ori_agent2: {act[1, 0].item():.2f}, "
-            #                       f"reward_agent1: {reward[0]:.2f}, "
-            #                       f"reward_agent2: {reward[1]:.2f}, "
-            #                       f"done_agent1: {done[0]}, "
-            #                       f"done_agent2: {done[1]}, "
-            #                       f"actor_loss: {agent.loss_history_actor:.2f}, "
-            #                       f"critic_loss: {agent.loss_history_critic:.2f}")
+            steps.set_description(f"epochs: {epoch}, "
+                                  f"time_step: {agent.t}, "
+                                  f"ep_reward_agent1: {reward_history[0].item():.2f}, "
+                                  f"ep_reward_agent2: {reward_history[1].item():.2f}, "
+                                  f"ori_agent1: {act[0, 0].item():.2f}, "
+                                  f"ori_agent2: {act[1, 0].item():.2f}, "
+                                  f"reward_agent1: {reward[0]:.2f}, "
+                                  f"reward_agent2: {reward[1]:.2f}, "
+                                  f"done_agent1: {done[0]}, "
+                                  f"done_agent2: {done[1]}, "
+                                  f"actor_loss: {agent.loss_history_actor:.2f}, "
+                                  f"critic_loss: {agent.loss_history_critic:.2f}")
 
             # 单幕数据收集完毕
             if any(done):

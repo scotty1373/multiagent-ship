@@ -256,7 +256,7 @@ class RoutePlan(gym.Env, EzPickle):
             linearDamping：线性阻尼
             #### 增加线性阻尼可以使物体行动有摩擦
             """
-            ship = self.world.CreateDynamicBody(
+            ship = self.world.CreateKinematicBody(
                 position=self.ships_init[idx],
                 angle=math.radians(self.ships_head[idx]),
                 angularDamping=20,
