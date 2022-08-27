@@ -16,13 +16,13 @@ ships_init[0, :] = np.array([-800, 200])
 ships_goal[0, :] = np.array([800, 1800])
 ships_speed[0] = 5.5
 ships_head[0] = 45
-ships_length[0] = 50
+ships_length[0] = 100
 
 ships_init[1, :] = np.array([-400, 600])
 ships_goal[1, :] = np.array([400, 1400])
 ships_speed[1] = 2.7
 ships_head[1] = 45
-ships_length[1] = 50
+ships_length[1] = 100
 
 # actions of ships
 ship_action_space = 1

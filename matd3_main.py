@@ -26,7 +26,7 @@ def parse_args():
     parser = argparse.ArgumentParser(
         description='MATD3 config option')
     parser.add_argument('--mode',
-                        default='2Ship_Overtaking',
+                        default='2Ship_Facing',
                         type=str,
                         help='environment name')
     parser.add_argument('--epochs',
@@ -43,7 +43,7 @@ def parse_args():
                         type=bool)
     parser.add_argument('--checkpoint_path',
                         help='If pre_trained is True, this option is pretrained ckpt path',
-                        default='./log/1661474710/save_model_ep600',
+                        default='./log/1661533203/save_model_ep900',
                         type=str)
     parser.add_argument('--max_timestep',
                         help='Maximum time step in a single epoch',

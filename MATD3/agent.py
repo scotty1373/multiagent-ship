@@ -13,7 +13,7 @@ from itertools import chain
 from models.multi_agnet_model import ActorModel, ActionCriticModel
 from utils_tools.utils import RunningMeanStd, cut_requires_grad
 
-DISTRIBUTION_INDEX = [0, 0.3]
+DISTRIBUTION_INDEX = [0, 0.5]
 
 
 class Agent:
@@ -35,7 +35,7 @@ class Agent:
         self.discount_index = 0.98
         self.smooth_regular = 0.1
         self.noise = Normal(DISTRIBUTION_INDEX[0], DISTRIBUTION_INDEX[1])
-        self.target_model_regular_noise = Normal(0, 0.1)
+        self.target_model_regular_noise = Normal(0, 0.2)
 
         # optimizer init
         self.actor_opt = torch.optim.Adam(params=self.actor_model.parameters(), lr=self.lr_actor)
