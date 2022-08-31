@@ -80,7 +80,10 @@ class Agent:
         torch.save(checkpoint, file_name)
 
     def load_model(self, file_name):
-        checkpoint = torch.load(file_name)
+        if self.device.type == 'cpu':
+            checkpoint = torch.load(file_name, map_location=lambda storage, loc: storage)
+        else:
+            checkpoint = torch.load(file_name)
         self.actor_model.load_state_dict(checkpoint['actor'])
         self.critic_model.load_state_dict(checkpoint['critic'])
         self.actor_opt.load_state_dict(checkpoint['opt_actor'])
