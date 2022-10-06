@@ -114,6 +114,7 @@ def true_bearing(x_os, y_os, x_cn, y_cn):
     return ture_bearing
 
 
+# 在航海导航中，物体的相对方位是从船舶航向到从船舶上的观察站到物体的直线之间的顺时针角度
 def relative_bearing(x_os, y_os, theta_os, x_cn, y_cn):
     """
     calculate the relative bearing
@@ -124,7 +125,7 @@ def relative_bearing(x_os, y_os, theta_os, x_cn, y_cn):
     :param y_cn:
     :return: relative bearing (result in degrees)
     """
-    rel_bearing = true_bearing(x_os, y_os, x_cn, y_cn) - theta_os
+    rel_bearing = theta_os - true_bearing(x_os, y_os, x_cn, y_cn)
     # Relative bearing is between -pi, pi
     rel_bearing = wrap_to_pi(math.radians(rel_bearing))
     # result in degrees between -180, 180

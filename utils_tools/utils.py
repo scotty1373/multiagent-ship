@@ -14,7 +14,7 @@ IMG_SIZE = (80, 80)
 IMG_SIZE_RENDEER = 480
 
 
-def trace_trans(vect, *, ratio=IMG_SIZE_RENDEER/16):
+def trace_trans(vect, *, ratio=IMG_SIZE_RENDEER/2000):
     remap_vect = np.array((vect[0] * ratio + (IMG_SIZE_RENDEER / 2), (-vect[1] * ratio) + IMG_SIZE_RENDEER), dtype=np.uint16)
     return remap_vect
 
