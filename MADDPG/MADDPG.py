@@ -3,10 +3,10 @@ import numpy as np
 import torch
 from copy import deepcopy
 from torch.distributions import Normal
-from MATD3.agent import Agent
+from MADDPG.agent import Agent
 
 
-class MATD3:
+class MADDPG:
     def __init__(self, frame_overlay, state_length, action_dim, batch_size, agent_num, device, train=True, logger=None):
         self.agent_num = agent_num
         self.frame_overlay = frame_overlay
@@ -77,14 +77,12 @@ class MATD3:
 
             critic_loss += self.critic_update(idx, vect_state, next_vect_state, agent_target_action, agent_online_action, reward_critic, done_critic)
 
-            # actor延迟更新
-            if self.t % self.delay_update == 0:
-                actor_loss += self.action_update(vect_state=vect_state, actor_vect=actor_vect, agent_idx=idx)
-                with torch.no_grad():
-                    self.agent_list[idx].model_soft_update(self.agent_list[idx].actor_model,
-                                                           self.agent_list[idx].actor_target)
-                    self.agent_list[idx].model_soft_update(self.agent_list[idx].critic_model,
-                                                           self.agent_list[idx].critic_target)
+            actor_loss += self.action_update(vect_state=vect_state, actor_vect=actor_vect, agent_idx=idx)
+            with torch.no_grad():
+                self.agent_list[idx].model_soft_update(self.agent_list[idx].actor_model,
+                                                       self.agent_list[idx].actor_target)
+                self.agent_list[idx].model_soft_update(self.agent_list[idx].critic_model,
+                                                       self.agent_list[idx].critic_target)
 
         self.logger.add_scalar(tag='actor_loss',
                                scalar_value=critic_loss,
@@ -114,13 +112,7 @@ class MATD3:
     def critic_update(self, agent_idx, vect_state, next_vect_state, target_action, action_env, reward, done):
         # [todo: critic network输入维度是否匹配...]
         with torch.no_grad():
-            noise = self.agent_list[agent_idx].target_model_regular_noise.sample(sample_shape=target_action.shape).to(self.device)
-            epsilon = torch.clamp(noise, min=-self.agent_list[agent_idx].smooth_regular,
-                                  max=self.agent_list[agent_idx].smooth_regular)
-            smooth_tg_act = target_action + epsilon
-            smooth_tg_act.clamp_(min=self.agent_list[agent_idx].action_space.min(), max=self.agent_list[agent_idx].action_space.max())
-
-            target_q1, target_q2 = self.agent_list[agent_idx].critic_target(next_vect_state, smooth_tg_act)
+            target_q1, target_q2 = self.agent_list[agent_idx].critic_target(next_vect_state, target_action)
             target_q1q2 = torch.cat([target_q1, target_q2], dim=1)
 
             # 根据论文附录中遵循deep Q learning，增加终止状态

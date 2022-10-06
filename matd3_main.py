@@ -12,7 +12,7 @@ from tqdm import tqdm
 
 from Envs.multiagent import RoutePlan
 from wrapper.wrapper import SkipEnvFrame
-from MATD3.MATD3 import MATD3
+from MADDPG.MADDPG import MADDPG
 from utils_tools.common import TIMESTAMP, seed_torch
 from utils_tools.utils import state_frame_overlay, pixel_based, first_init, trace_trans
 from utils_tools.utils import MultiAgentReplayBuffer
@@ -24,9 +24,9 @@ IMG_SIZE_RENDEER = 480
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description='MATD3 config option')
+        description='MADDPG config option')
     parser.add_argument('--mode',
-                        default='2Ship_Facing',
+                        default='2Ship_CrossAway',
                         type=str,
                         help='environment name')
     parser.add_argument('--epochs',
@@ -82,7 +82,7 @@ def parse_args():
                         type=str)
     parser.add_argument('--replay_buffer_size',
                         help='Replay Buffer Size',
-                        default=8000,
+                        default=12000,
                         type=int)
     args = parser.parse_args()
     return args
@@ -120,14 +120,14 @@ def main(args):
                                            device=device)
 
     """初始化agent"""
-    agent = MATD3(frame_overlay=args.frame_overlay,
-                  state_length=args.state_length,
-                  action_dim=1,
-                  batch_size=args.batch_size,
-                  agent_num=env.env.agent_num,
-                  device=device,
-                  train=args.train,
-                  logger=tb_logger)
+    agent = MADDPG(frame_overlay=args.frame_overlay,
+                   state_length=args.state_length,
+                   action_dim=1,
+                   batch_size=args.batch_size,
+                   agent_num=env.env.agent_num,
+                   device=device,
+                   train=args.train,
+                   logger=tb_logger)
 
     # pretrained 选项，载入预训练模型
     if args.pre_train:
@@ -135,10 +135,10 @@ def main(args):
             checkpoint = args.checkpoint_path
             agent.load_model(checkpoint)
     # """初始化agent探索轨迹追踪"""
-    # env.reset()
-    # trace_image = env.render(mode='rgb_array')
-    # trace_image = Image.fromarray(trace_image)
-    # trace_path = ImageDraw.Draw(trace_image)
+    env.reset()
+    trace_image = env.render(mode='rgb_array')
+    trace_image = Image.fromarray(trace_image)
+    trace_path = ImageDraw.Draw(trace_image)
 
     done = [True] * agent.agent_num
     # ep_history = []
@@ -148,15 +148,15 @@ def main(args):
     pixel_obs = None
     obs = None
 
-    epochs = tqdm(range(args.epochs), leave=False, position=0, colour='green')
+    epochs = tqdm(range(args.epochs), leave=False, position=0, colour='blue')
     for epoch in epochs:
         reward_history = np.zeros((agent.agent_num,))
         if any(done):
             """轨迹记录"""
-            _, obs, done = first_init(env, args)
+            trace_history, obs, done = first_init(env, args)
 
         # timestep 样本收集
-        steps = tqdm(range(0, args.max_timestep), leave=False, position=1, colour='red')
+        steps = tqdm(range(0, args.max_timestep), leave=False, position=1, colour='green')
         for t in steps:
             act = agent.get_action(obs)
             # 环境交互
@@ -184,7 +184,8 @@ def main(args):
             obs = obs_t1
             reward_history += reward
 
-            # trace_history.append(tuple(trace_trans(env.env.ship.position)))
+            for trace_idx in range(agent.agent_num):
+                trace_history[trace_idx].append(tuple(trace_trans(env.env.ships[trace_idx].position)))
             steps.set_description(f"epochs: {epoch}, "
                                   f"time_step: {agent.t}, "
                                   f"ep_reward_agent1: {reward_history[0].item():.2f}, "
@@ -200,8 +201,10 @@ def main(args):
 
             # 单幕数据收集完毕
             if any(done):
+                for trace_idx in range(agent.agent_num):
+                    trace_path.line(trace_history[trace_idx], fill='blue', width=1)
                 # 单幕结束显示轨迹
-                _, obs, done = first_init(env, args)
+                trace_history, obs, done = first_init(env, args)
 
         # ep_history.append(reward_history)
         # log_ep_text = {'epochs': epoch,
@@ -213,10 +216,10 @@ def main(args):
             tb_logger.add_scalar(tag=f'Reward/ep_reward_agent_{agent_idx}',
                                  scalar_value=reward_history[agent_idx],
                                  global_step=epoch)
-        # tb_logger.add_image(tag=f'Image/Trace',
-        #                     img_tensor=np.array(trace_image),
-        #                     global_step=epoch,
-        #                     dataformats='HWC')
+        tb_logger.add_image(tag=f'Image/Trace',
+                            img_tensor=np.array(trace_image),
+                            global_step=epoch,
+                            dataformats='HWC')
 
         # 环境重置
         if not epoch % 25:

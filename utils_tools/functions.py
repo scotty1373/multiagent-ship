@@ -145,10 +145,10 @@ def colregs_rule(ship1_x, ship1_y, ship1_psi, ship1_u, ship2_x, ship2_y, ship2_p
     :param ship2_u:
     :return: state according COLREGs
     """
-    # target ship 相对于 own ship 的相对方位角
+    # target ship 相对于 own ship 的相对方位角(own ship as root)
     # RB_os_ts: Relative bearing of TS from OS
     RB_os_ts = relative_bearing(ship1_x, ship1_y, ship1_psi, ship2_x, ship2_y)
-    # own ship 相对于 target ship 的相对方位角
+    # own ship 相对于 target ship 的相对方位角(target ship as root)
     # RB_ts_os: Relative bearing of OS from TS
     RB_ts_os = relative_bearing(ship2_x, ship2_y, ship2_psi, ship1_x, ship1_y)
     # Head on, give away
@@ -162,10 +162,10 @@ def colregs_rule(ship1_x, ship1_y, ship1_psi, ship1_u, ship2_x, ship2_y, ship2_p
         rule = 'OT-SO'
     # Crossing, give way
     elif 0 < RB_os_ts < 112.5 and 10 > RB_ts_os > -112.5:
-        rule = 'CR-SO'
+        rule = 'CR-GW'
     # Crossing, stand on
     elif 10 > RB_os_ts > -112.5 and 0 < RB_ts_os < 112.5:
-        rule = 'CR-GW'
+        rule = 'CR-SO'
     else:
         rule = 'Null'
     return rule

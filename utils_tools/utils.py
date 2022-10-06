@@ -74,8 +74,9 @@ def record(global_ep, global_ep_r, ep_r, res_queue, worker_ep, name, idx):
           f'EP_r: {global_ep_r.value}, '
           f'reward_ep: {ep_r}')
 
+
 def first_init(env, args):
-    trace_history = []
+    trace_history = [[] for i in range(env.env.agent_num)]
     obs_cat = []
     # 类装饰器不改变类内部调用方式
     obs, _, done, _ = env.reset()
@@ -145,6 +146,7 @@ class MultiAgentReplayBuffer:
         self.device = device
 
         # state store for critic
+        # vect -> List[t1->tuple(agent1_vect, agent2_vect), t2, ...]
         self.vect_state = np.zeros((self.max_lens, self.state_length * self.frame_overlay * self.agent_num))
         self.next_vect_state = np.zeros((self.max_lens, self.state_length * self.frame_overlay * self.agent_num))
         self.reward = np.zeros((self.max_lens, self.agent_num))
@@ -154,6 +156,7 @@ class MultiAgentReplayBuffer:
         self.vect = []
         self.next_vect = []
         self.action = []
+        # vect -> List[agent1->List[t1, t2, ...], agent2->List[t1, t2, ...], ...]
         for i in range(self.agent_num):
             self.vect.append(np.zeros((self.max_lens, self.state_length * self.frame_overlay)))
             self.next_vect.append(np.zeros((self.max_lens, self.state_length * self.frame_overlay)))
@@ -191,6 +194,7 @@ class MultiAgentReplayBuffer:
                 torch.FloatTensor(self.next_vect_state[ind]).to(self.device),
                 torch.FloatTensor(self.reward[ind]).to(self.device),
                 torch.FloatTensor(self.done[ind]).to(self.device))
+
 
 class NormData:
     def pos_norm(self, pos_cur, pos_min, pos_max):
