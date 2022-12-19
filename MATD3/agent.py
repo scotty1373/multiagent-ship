@@ -10,7 +10,7 @@ from collections import deque
 from copy import deepcopy
 from torch.distributions import Normal
 from itertools import chain
-from models.multi_agnet_model import ActorModel, ActionCriticModel
+from models.multi_agent_atte import ActorModel, ActionCriticModel
 from utils_tools.utils import RunningMeanStd, cut_requires_grad
 
 DISTRIBUTION_INDEX = [0, 0.5]

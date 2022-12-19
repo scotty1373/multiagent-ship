@@ -10,6 +10,7 @@ from torch import nn
 from torch.distributions import Normal
 import numpy as np
 
+
 class ActorModel(nn.Module):
     def __init__(self, state_dim, action_dim):
         super(ActorModel, self).__init__()

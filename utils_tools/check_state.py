@@ -37,10 +37,13 @@ class CheckState:
         self.dis_c2 = self.dis_c
 
         # 记录距离
+        self.dist_init = np.zeros((self.agents_num,))
         self.dist_record = np.zeros((self.agents_num,))
         for i in range(self.agents_num):
             self.dist_record[i] = euc_dist(self.pos_init[i, 0], self.pos_term[i, 0],
                                            self.pos_init[i, 1], self.pos_term[i, 1])
+            self.dist_init[i] = euc_dist(self.pos_init[i, 0], self.pos_term[i, 0],
+                                         self.pos_init[i, 1], self.pos_term[i, 1])
 
         if self.agents_num > 1:
             distance = []
@@ -98,7 +101,7 @@ class CheckState:
                 else:
                     done_term[ship_idx] = False
                     # punishment for living
-                    reward_done[ship_idx] += -self.reward_alive
+                    reward_done[ship_idx] += -self.reward_alive * dis_to_goal / self.dist_init[ship_idx]
         return reward_done
 
     def check_rela_ang(self, next_state):
@@ -122,7 +125,7 @@ class CheckState:
             if dif_ang < 5:
                 reward_rela_ang[ship_idx] = self.max_reward_rela_ang
             elif 5 <= dif_ang < 30:
-                reward_rela_ang[ship_idx] = 0
+                reward_rela_ang[ship_idx] = self.max_reward_rela_ang * (dif_ang / 30)
             else:
                 reward_rela_ang[ship_idx] = -self.max_reward_rela_ang * (dif_ang / 180)
         return reward_rela_ang
