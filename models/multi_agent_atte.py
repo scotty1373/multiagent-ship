@@ -105,8 +105,8 @@ class TransBlock(nn.Module):
     def forward(self, x):
         out = self.self_attention(x)
         out = self.norm1(out + x)
-        out = self.fc(out)
-        return self.norm2(out)
+        out_fc = self.fc(out)
+        return self.norm2(out + out_fc)
 
 
 class ScaledDotProductAttention(nn.Module):

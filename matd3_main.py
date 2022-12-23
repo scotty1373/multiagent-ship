@@ -26,12 +26,12 @@ def parse_args():
     parser = argparse.ArgumentParser(
         description='MATD3 config option')
     parser.add_argument('--mode',
-                        default='2Ship_Facing',
+                        default='4Ship_CrossAway',
                         type=str,
                         help='environment name')
     parser.add_argument('--epochs',
                         help='Training epoch',
-                        default=1000,
+                        default=400,
                         type=int)
     parser.add_argument('--train',
                         help='Train or not',
@@ -70,7 +70,7 @@ def parse_args():
     #                     default=5+24*2)
     parser.add_argument('--state_length',
                         help='state data vector length',
-                        default=3,
+                        default=5,
                         type=int)
     parser.add_argument('--pixel_state',
                         help='Image-Based Status',
@@ -82,7 +82,7 @@ def parse_args():
                         type=str)
     parser.add_argument('--replay_buffer_size',
                         help='Replay Buffer Size',
-                        default=8000,
+                        default=12000,
                         type=int)
     args = parser.parse_args()
     return args
@@ -98,7 +98,7 @@ def main(args):
     # # epoch log初始化
     # logger_ep = log2json(filename='train_log_ep', type_json=True)
     # tensorboard初始化
-    tb_logger = SummaryWriter(log_dir=f"./log/{TIMESTAMP}", flush_secs=120)
+    tb_logger = SummaryWriter(log_dir=f"./log/{args.mode}_{TIMESTAMP}", flush_secs=120)
 
     # 是否随机初始化种子
     if args.seed is not None:
@@ -223,7 +223,7 @@ def main(args):
             env.close()
             env = RoutePlan(mode=args.mode, seed=seed)
             env = SkipEnvFrame(env, args.frame_skipping)
-            agent_save_path = f'./log/{TIMESTAMP}/save_model_ep{epoch}'
+            agent_save_path = f'./log/{args.mode}_{TIMESTAMP}/save_model_ep{epoch}'
             if not os.path.exists(agent_save_path):
                 os.mkdir(agent_save_path)
             agent.save_model(agent_save_path)

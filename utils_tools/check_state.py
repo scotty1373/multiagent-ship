@@ -65,7 +65,7 @@ class CheckState:
         if self.agents_num > 1:
             self.max_reward_CPA = 10
             self.max_reward_COLREGs = 70
-            self.reward_max = self.reward_max + self.max_reward_CPA + self.max_reward_COLREGs
+            self.reward_max = (self.reward_max + self.max_reward_CPA + self.max_reward_COLREGs) * self.agents_num
 
     def check_done(self, next_state, done_term):
         """
@@ -101,7 +101,8 @@ class CheckState:
                 else:
                     done_term[ship_idx] = False
                     # punishment for living
-                    reward_done[ship_idx] += -self.reward_alive * dis_to_goal / self.dist_init[ship_idx]
+                    reward_done[ship_idx] += -((self.reward_alive / 2) * dis_to_goal /
+                                               self.dist_init[ship_idx]) - self.reward_alive / 2
         return reward_done
 
     def check_rela_ang(self, next_state):
@@ -125,9 +126,11 @@ class CheckState:
             if dif_ang < 5:
                 reward_rela_ang[ship_idx] = self.max_reward_rela_ang
             elif 5 <= dif_ang < 30:
-                reward_rela_ang[ship_idx] = self.max_reward_rela_ang * (dif_ang / 30)
+                # 随角度减小回报增加
+                reward_rela_ang[ship_idx] = self.max_reward_rela_ang * (1 - (dif_ang-5) / 25)
             else:
-                reward_rela_ang[ship_idx] = -self.max_reward_rela_ang * (dif_ang / 180)
+                # 随角度增大惩罚增加
+                reward_rela_ang[ship_idx] = -self.max_reward_rela_ang * ((dif_ang - 30) / 150)
         return reward_rela_ang
 
     def check_coll(self, next_state, ships_coll):
@@ -176,8 +179,8 @@ class CheckState:
         dis_buffer = np.array(dis_buffer)
         dis_min = np.min(dis_buffer[:, 0])
         dis_min_index = np.where(dis_buffer[:, 0] == dis_min)
-        dis_closest = dis_buffer[dis_min_index[0], :]
-        return reward_coll, dis_closest[0]
+        dis_closest = dis_buffer[:, 0]
+        return reward_coll, dis_closest
 
     def check_CPA(self, next_state):
         """
@@ -267,9 +270,11 @@ class CheckState:
                         if dif_ang < 5:
                             reward_CORLEGs[ship_i] += self.max_reward_COLREGs
                         elif 5 <= dif_ang < 30:
-                            reward_CORLEGs[ship_i] += 0
+                            # 随角度减小回报增加
+                            reward_CORLEGs[ship_i] += self.max_reward_COLREGs * (1 - (dif_ang-5) / 25)
                         else:
-                            reward_CORLEGs[ship_i] -= self.max_reward_COLREGs
+                            # 随角度增大惩罚增加
+                            reward_CORLEGs[ship_i] -= self.max_reward_COLREGs * ((dif_ang - 30) / 150)
         if reward_CORLEGs.max() > 70 or reward_CORLEGs.min() < -70:
             time.time()
         return reward_CORLEGs, self.rules_table
