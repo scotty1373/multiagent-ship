@@ -45,7 +45,10 @@ SIDE_ENGINE_POWER = 5
 PANEL = [(0.19, 0.72, 0.87), (0.10, 0.45, 0.56),  # ship
          (0.22, 0.16, 0.27), (0.31, 0.30, 0.31),  # barriers
          (0.87, 0.4, 0.23), (0.58, 0.35, 0.28),  # reach area
-         (0.25, 0.41, 0.88), (0, 0, 0)]
+         (0.25, 0.41, 0.88), (0, 0, 0),
+         (0.89, 0.73, 0.50), (0.5, 0.5, 0.5),
+         (0, 0.78, 0.36), (0.5, 0.5, 0.5),
+         (0.85, 0.65, 0.13), (0.5, 0.5, 0.5)]
 
 RAY_CAST_LASER_NUM = 24
 
@@ -436,17 +439,21 @@ class RoutePlan(gym.Env, EzPickle):
         state = [
             pos[0],
             pos[1],
-            ship_head_degrees
+            ship_head_degrees,
+            pos[0]-self.ships_goal[idx][0],
+            pos[1]-self.ships_goal[idx][1]
         ]
-        assert len(state) == 3
+        assert len(state) == 5
 
         # 状态值归一化
         norm_state = [
             self.norm.pos_norm(pos[0], self.ships_x_min[idx], self.ships_x_max[idx]),
             self.norm.pos_norm(pos[1], self.ships_y_min[idx], self.ships_y_max[idx]),
-            self.norm.ang_norm(ship_head_degrees)
+            self.norm.ang_norm(ship_head_degrees),
+            self.norm.pos_norm(pos[0]-self.ships_goal[idx][0], self.ships_x_min[idx], self.ships_x_max[idx]),
+            self.norm.pos_norm(pos[1]-self.ships_goal[idx][1], self.ships_y_min[idx], self.ships_y_max[idx]),
         ]
-        assert len(norm_state) == 3
+        assert len(norm_state) == 5
 
         return np.hstack(state), np.hstack(norm_state)
 

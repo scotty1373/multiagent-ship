@@ -98,6 +98,9 @@ class visualize_result:
         plt.xlabel('epochs')
         plt.show()
 
+    def get_dist_change(self):
+        pass
+
     def uni_loss(self):
         pass
 

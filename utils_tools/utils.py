@@ -42,6 +42,7 @@ def pixel_based(new_state, old_state, frame_num):
                                        axis=1)
     return new_frame_overlay
 
+
 def img_proc(img, resize=(80, 80)):
     img = Image.fromarray(img.astype(np.uint8))
     img = np.array(img.resize(resize, resample=Image.BILINEAR))
@@ -73,6 +74,7 @@ def record(global_ep, global_ep_r, ep_r, res_queue, worker_ep, name, idx):
           f'worker_EP: {worker_ep}, '
           f'EP_r: {global_ep_r.value}, '
           f'reward_ep: {ep_r}')
+
 
 def first_init(env, args):
     trace_history = []
@@ -191,6 +193,7 @@ class MultiAgentReplayBuffer:
                 torch.FloatTensor(self.next_vect_state[ind]).to(self.device),
                 torch.FloatTensor(self.reward[ind]).to(self.device),
                 torch.FloatTensor(self.done[ind]).to(self.device))
+
 
 class NormData:
     def pos_norm(self, pos_cur, pos_min, pos_max):
