@@ -55,7 +55,7 @@ def parse_args():
                         type=int)
     parser.add_argument('--batch_size',
                         help='training batch size',
-                        default=64,
+                        default=32,
                         type=int)
     parser.add_argument('--frame_skipping',
                         help='random walk frame skipping',
@@ -70,7 +70,7 @@ def parse_args():
     #                     default=5+24*2)
     parser.add_argument('--state_length',
                         help='state data vector length',
-                        default=5,
+                        default=5+24*2,
                         type=int)
     parser.add_argument('--pixel_state',
                         help='Image-Based Status',
@@ -91,7 +91,8 @@ def parse_args():
 def main(args):
     args = args
     seed_torch()
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    # device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    device = torch.device('cpu')
 
     # # Iter log初始化
     # logger_iter = log2json(filename='train_log_iter', type_json=True)

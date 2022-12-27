@@ -160,6 +160,8 @@ class RoutePlan(gym.Env, EzPickle):
 
         # Raycast船体半径
         self.ship_radius = 0.36*element_wise_weight
+        # Raycast结束点列表
+        self.term_list = []
         # 渲染列表
         self.draw_list = None
 
@@ -291,6 +293,9 @@ class RoutePlan(gym.Env, EzPickle):
             self.term_points.append(reach_area)
         # self.draw_list = self.ships + [self.ground] + self.term_points
         self.draw_list = self.ships + self.term_points
+
+        # Raycast结束点列表
+        self.term_list = [i.fixtures[0] for i in self.term_points]
         """
         # reward Heatmap构建
         # 使heatmap只生成一次
@@ -394,11 +399,12 @@ class RoutePlan(gym.Env, EzPickle):
                           'normal': np.zeros((RAY_CAST_LASER_NUM, 2)),
                           'distance': np.zeros((RAY_CAST_LASER_NUM, 2))}
         # 传感器扫描
-        length = self.ship_radius * 5  # Set up the raycast line
+        scale = 15
+        length = self.ships_length[idx].item() * scale  # Set up the raycast line
         point1 = self.ships[idx].position
         for vect in range(RAY_CAST_LASER_NUM):
             ray_angle = self.ships[idx].angle - b2_pi / 2 + (b2_pi * 2 / RAY_CAST_LASER_NUM * vect)
-            d = (length * math.cos(ray_angle), length * math.sin(ray_angle))
+            d = b2Vec2(length * math.cos(ray_angle), length * math.sin(ray_angle))
             point2 = point1 + d
 
             # 初始化Raycast callback函数
@@ -408,14 +414,16 @@ class RoutePlan(gym.Env, EzPickle):
                 sensor_raycast['points'][vect] = callback.point
                 sensor_raycast['normal'][vect] = callback.normal
                 if callback.fixture == self.term_points[idx].fixtures[0]:
-                    sensor_raycast['distance'][vect] = (2, Distance_Cacul(point1, callback.point) - self.ship_radius)
+                    sensor_raycast['distance'][vect] = (1, Distance_Cacul(point1, callback.point) - self.ships_length[idx].item())
                 # elif callback.fixture in self.ground.fixtures:
                 #     sensor_raycast['distance'][vect] = (2, Distance_Cacul(point1, callback.point) - self.ship_radius)
+                elif callback.fixture in self.term_list:
+                    sensor_raycast['distance'][vect] = (0, length)
                 else:
-                    sensor_raycast['distance'][vect] = (1, Distance_Cacul(point1, callback.point) - self.ship_radius)
+                    sensor_raycast['distance'][vect] = (-1, Distance_Cacul(point1, callback.point) - self.ships_length[idx].item())
             else:
-                sensor_raycast['distance'][vect] = (0, 5 * self.ship_radius)
-        sensor_raycast['distance'][..., 1] /= self.ship_radius * 5
+                sensor_raycast['distance'][vect] = (0, length)
+        sensor_raycast['distance'][..., 1] /= length
 
         # 当前船体相较于世界位置
         pos = self.ships[idx].position
@@ -441,9 +449,10 @@ class RoutePlan(gym.Env, EzPickle):
             pos[1],
             ship_head_degrees,
             pos[0]-self.ships_goal[idx][0],
-            pos[1]-self.ships_goal[idx][1]
+            pos[1]-self.ships_goal[idx][1],
+            [sensor_info for sensor_info in sensor_raycast['distance'].reshape(-1)]
         ]
-        assert len(state) == 5
+        assert len(state) == 6
 
         # 状态值归一化
         norm_state = [
@@ -452,8 +461,9 @@ class RoutePlan(gym.Env, EzPickle):
             self.norm.ang_norm(ship_head_degrees),
             self.norm.pos_norm(pos[0]-self.ships_goal[idx][0], self.ships_x_min[idx], self.ships_x_max[idx]),
             self.norm.pos_norm(pos[1]-self.ships_goal[idx][1], self.ships_y_min[idx], self.ships_y_max[idx]),
+            [sensor_info for sensor_info in sensor_raycast['distance'].reshape(-1)]
         ]
-        assert len(norm_state) == 5
+        assert len(norm_state) == 6
 
         return np.hstack(state), np.hstack(norm_state)
 

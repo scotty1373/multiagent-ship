@@ -14,7 +14,11 @@ class ActorModel(nn.Module):
         self.state_dim = state_dim
         self.action_dim = action_dim
         self.fc_state = nn.Sequential(
-            nn.Linear(self.state_dim, 400),
+            nn.Linear(self.state_dim-5*4, 300),
+            nn.ReLU(inplace=True)
+        )
+        self.fc_state2 = nn.Sequential(
+            nn.Linear(self.state_dim-24*2*4, 100),
             nn.ReLU(inplace=True)
         )
         self.mean_fc1 = nn.Sequential(
@@ -24,8 +28,14 @@ class ActorModel(nn.Module):
         self.mean_fc2act = nn.Tanh()
 
     def forward(self, state_vect):
-        action_mean = self.fc_state(state_vect)
-        action_mean = self.mean_fc1(action_mean)
+        b = state_vect.shape[:1].numel()
+        state_vect = state_vect.reshape(b, 4, -1)
+        state_pos = state_vect[:, :, :5].reshape(b, -1)
+        state_ray = state_vect[:, :, 5:].reshape(b, -1)
+        ray_feature = self.fc_state(state_ray)
+        pos_feature = self.fc_state2(state_pos)
+        common = torch.cat((ray_feature, pos_feature), dim=-1)
+        action_mean = self.mean_fc1(common)
         action_mean = self.mean_fc2(action_mean)
         action_mean = self.mean_fc2act(action_mean)
         return action_mean

@@ -152,7 +152,7 @@ def colregs_rule(ship1_x, ship1_y, ship1_psi, ship1_u, ship2_x, ship2_y, ship2_p
     # RB_ts_os: Relative bearing of OS from TS
     RB_ts_os = relative_bearing(ship2_x, ship2_y, ship2_psi, ship1_x, ship1_y)
     # Head on, give away
-    if abs(RB_os_ts) < 45 and abs(RB_ts_os) < 45:
+    if abs(RB_os_ts) < 6 and abs(RB_ts_os) < 6:
         rule = 'HO-GW'
     # Overtaking, give way
     elif abs(RB_ts_os) > 112.5 and abs(RB_os_ts) < 45 and (ship1_u > (ship2_u * 1.1)):
@@ -161,10 +161,10 @@ def colregs_rule(ship1_x, ship1_y, ship1_psi, ship1_u, ship2_x, ship2_y, ship2_p
     elif abs(RB_os_ts) > 112.5 and abs(RB_ts_os) < 45 and (ship2_u > (ship1_u * 1.1)):
         rule = 'OT-SO'
     # Crossing, give way
-    elif 0 < RB_os_ts < 112.5 and 10 > RB_ts_os > -112.5:
+    elif 6 < RB_os_ts < 112.5 and -6 > RB_ts_os > -112.5:
         rule = 'CR-SO'
     # Crossing, stand on
-    elif 10 > RB_os_ts > -112.5 and 0 < RB_ts_os < 112.5:
+    elif -6 > RB_os_ts > -112.5 and 6 < RB_ts_os < 112.5:
         rule = 'CR-GW'
     else:
         rule = 'Null'
