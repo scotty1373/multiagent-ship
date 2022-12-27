@@ -59,7 +59,7 @@ class CheckState:
                 for ship_j in range(self.agents_num):
                     self.rules_table[ship_i, ship_j] = 'Null'
 
-        self.max_reward_rela_ang = 20
+        self.max_reward_rela_ang = 30
         self.reward_alive = 20
         self.reward_max = self.max_reward_rela_ang + self.reward_alive
         if self.agents_num > 1:
@@ -275,6 +275,6 @@ class CheckState:
                         else:
                             # 随角度增大惩罚增加
                             reward_CORLEGs[ship_i] -= self.max_reward_COLREGs * ((dif_ang - 30) / 150)
-        if reward_CORLEGs.max() > 70 or reward_CORLEGs.min() < -70:
+        if reward_CORLEGs.max() > 70 * self.agents_num or reward_CORLEGs.min() < -70 * self.agents_num:
             time.time()
         return reward_CORLEGs, self.rules_table

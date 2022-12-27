@@ -15,11 +15,11 @@ class ActorModel(nn.Module):
         self.state_dim = state_dim
         self.action_dim = action_dim
         self.fc_state = nn.Sequential(
-            nn.Linear(self.state_dim-5*4, 200),
+            nn.Linear(self.state_dim-5*4, 300),
             nn.ReLU(inplace=True)
         )
         self.fc_state2 = nn.Sequential(
-            nn.Linear(self.state_dim-24*2*4, 200),
+            nn.Linear(self.state_dim-24*2*4, 100),
             nn.ReLU(inplace=True)
         )
         self.mean_fc1 = nn.Sequential(
@@ -50,30 +50,30 @@ class ActionCriticModel(nn.Module):
         self.agent_num = agent_num
 
         self.fc_head_ray = nn.Sequential(
-            nn.Linear(self.state_dim-5*4, 64),
+            nn.Linear(self.state_dim-5*4, 128),
             nn.ReLU(inplace=True)
         )
         self.fc_head_pos = nn.Sequential(
-            nn.Linear(self.state_dim-24*2*4, 48),
+            nn.Linear(self.state_dim-24*2*4, 64),
             nn.ReLU(inplace=True)
         )
         self.fc_head_act = nn.Sequential(
-            nn.Linear(self.action_dim, 16),
+            nn.Linear(self.action_dim, 32),
             nn.ReLU(inplace=True)
         )
 
-        self.trans_block1 = TransBlock(128, 4)
-        self.trans_block2 = TransBlock(128, 4)
+        self.trans_block1 = TransBlock(224, 4)
+        self.trans_block2 = TransBlock(224, 4)
 
         # q1 network
         self.fc1_q1 = nn.Sequential(
-            orthogonal_init(nn.Linear(128*agent_num, 300), gain=np.sqrt(2)),
+            orthogonal_init(nn.Linear(224*agent_num, 300), gain=np.sqrt(2)),
             nn.ReLU(inplace=True),
             orthogonal_init(nn.Linear(300, 1), gain=0.01))
 
         # q2 network
         self.fc1_q2 = nn.Sequential(
-            orthogonal_init(nn.Linear(128*agent_num, 300), gain=np.sqrt(2)),
+            orthogonal_init(nn.Linear(224*agent_num, 300), gain=np.sqrt(2)),
             nn.ReLU(inplace=True),
             orthogonal_init(nn.Linear(300, 1), gain=0.01))
 
@@ -141,16 +141,16 @@ class TransBlock(nn.Module):
 
 
 class ScaledDotProductAttention(nn.Module):
-    """
+    '''
     Scaled dot-product attention
-    """
+    '''
     def __init__(self, d_model, d_k, d_v, h):
-        """
+        '''
         :param d_model: Output dimensionality of the model
         :param d_k: Dimensionality of queries and keys
         :param d_v: Dimensionality of values
         :param h: Number of heads
-        """
+        '''
         super(ScaledDotProductAttention, self).__init__()
         self.fc_q = nn.Linear(d_model, h * d_k)
         self.fc_k = nn.Linear(d_model, h * d_k)

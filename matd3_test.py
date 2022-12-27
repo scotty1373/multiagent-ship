@@ -39,7 +39,7 @@ def parse_args():
                         type=bool)
     parser.add_argument('--checkpoint_path',
                         help='If pre_trained is True, this option is pretrained ckpt path',
-                        default='./log/4Ship_CrossAway_1671609054/save_model_ep75',
+                        default='./log/4Ship_CrossAway_1672140019/save_model_ep350',
                         type=str)
     parser.add_argument('--max_timestep',
                         help='Maximum time step in a single epoch',
@@ -66,7 +66,7 @@ def parse_args():
     #                     default=5+24*2)
     parser.add_argument('--state_length',
                         help='state data vector length',
-                        default=5,
+                        default=5+24*2,
                         type=int)
     parser.add_argument('--pixel_state',
                         help='Image-Based Status',
