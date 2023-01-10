@@ -26,7 +26,7 @@ def parse_args():
     parser = argparse.ArgumentParser(
         description='MATD3 config option')
     parser.add_argument('--mode',
-                        default='4Ship_CrossAway',
+                        default='5Ship_CrossAway',
                         type=str,
                         help='environment name')
     parser.add_argument('--epochs',

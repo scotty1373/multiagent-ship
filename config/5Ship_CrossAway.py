@@ -11,29 +11,35 @@ ships_speed = np.zeros((ships_num, 1))
 ships_head = np.zeros((ships_num, 1))
 ships_length = np.zeros((ships_num, 1))
 
-ships_init[0, :] = np.array([0, 1900])
-ships_goal[0, :] = np.array([0, 100])
+ships_init[0, :] = np.array([-500, 1875])
+ships_goal[0, :] = np.array([500, 133.3])
 ships_speed[0] = 5
-ships_head[0] = -90
+ships_head[0] = -60
 ships_length[0] = 50
 
-ships_init[1, :] = np.array([-900, 900])
-ships_goal[1, :] = np.array([900, 900])
+ships_init[1, :] = np.array([-875, 1508.3])
+ships_goal[1, :] = np.array([875, 508.3])
 ships_speed[1] = 5
-ships_head[1] = 0
+ships_head[1] = -30
 ships_length[1] = 50
 
-ships_init[2, :] = np.array([0, 100])
-ships_goal[2, :] = np.array([0, 1900])
+ships_init[2, :] = np.array([-1000, 1000])
+ships_goal[2, :] = np.array([1000, 1000])
 ships_speed[2] = 5
-ships_head[2] = 90
+ships_head[2] = 0
 ships_length[2] = 50
 
-ships_init[3, :] = np.array([900, 900])
-ships_goal[3, :] = np.array([-900, 900])
+ships_init[3, :] = np.array([-875, 508.3])
+ships_goal[3, :] = np.array([875, 1508.3])
 ships_speed[3] = 5
-ships_head[3] = 180
+ships_head[3] = 30
 ships_length[3] = 50
+
+ships_init[4, :] = np.array([-500, 133.3])
+ships_goal[4, :] = np.array([500, 1875])
+ships_speed[4] = 5
+ships_head[4] = 60
+ships_length[4] = 50
 
 # actions of ships
 ship_action_space = 1
