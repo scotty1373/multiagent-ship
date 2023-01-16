@@ -22,7 +22,7 @@ def parse_args():
     parser = argparse.ArgumentParser(
         description='MATD3 config option')
     parser.add_argument('--mode',
-                        default='4Ship_CrossAway',
+                        default='3Ship_CrossAway',
                         type=str,
                         help='environment name')
     parser.add_argument('--epochs',
@@ -39,7 +39,7 @@ def parse_args():
                         type=bool)
     parser.add_argument('--checkpoint_path',
                         help='If pre_trained is True, this option is pretrained ckpt path',
-                        default='./log/4Ship_CrossAway_1672140019/save_model_ep350',
+                        default='./log/3Ship_CrossAway_1671457010/save_model_ep150',
                         type=str)
     parser.add_argument('--max_timestep',
                         help='Maximum time step in a single epoch',
@@ -66,7 +66,7 @@ def parse_args():
     #                     default=5+24*2)
     parser.add_argument('--state_length',
                         help='state data vector length',
-                        default=5+24*2,
+                        default=5,
                         type=int)
     parser.add_argument('--pixel_state',
                         help='Image-Based Status',
@@ -180,17 +180,20 @@ def main(args):
                               f"done_agent1: {done[0]}, "
                               f"done_agent2: {done[1]}, ")
 
-        if all(done) and not any(done_coll):
+        if (all(done) and not any(done_coll)) or step % 200 == 0:
             dis_history_tmp = np.array(dis_history)
             for idx, node in enumerate(trace_history.values()):
-                node.append(tuple(trace_trans(env.env.ships_goal[idx], ratio=0.24)))
+                if all(done) and not any(done_coll):
+                    node.append(tuple(trace_trans(env.env.ships_goal[idx], ratio=0.24)))
                 trace_path.point(node, fill='Blue')
+                trace_path.line(node, fill='Blue', width=1)
             trace_image.save(f'./log/{args.mode}_{TIMESTAMP}_test/track_{step}.png', quality=95)
             for dist_enum in range(dis_history_tmp.shape[1]):
                 plt.plot(range(dis_history_tmp.shape[0]), dis_history_tmp[:, dist_enum])
 
             plt.savefig(f'./log/{args.mode}_{TIMESTAMP}_test/dist_{step}.png')
-
+            for flag in range(agent.agent_num):
+                done[flag] = True
         agent.ep += 1
     env.close()
 
