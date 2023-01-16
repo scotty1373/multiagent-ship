@@ -90,7 +90,6 @@ def parse_args():
 
 def main(args):
     args = args
-    seed_torch()
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     # device = torch.device('cpu')
 

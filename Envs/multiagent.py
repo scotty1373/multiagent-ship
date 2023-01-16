@@ -295,7 +295,7 @@ class RoutePlan(gym.Env, EzPickle):
         self.draw_list = self.ships + self.term_points
 
         # Raycast结束点列表
-        self.term_list = [i.fixtures[0] for i in self.term_poin4ts]
+        self.term_list = [i.fixtures[0] for i in self.term_points]
         """
         # reward Heatmap构建
         # 使heatmap只生成一次

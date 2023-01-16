@@ -39,7 +39,7 @@ def parse_args():
                         type=bool)
     parser.add_argument('--checkpoint_path',
                         help='If pre_trained is True, this option is pretrained ckpt path',
-                        default='./log/3Ship_CrossAway_1671457010/save_model_ep150',
+                        default='./log/3Ship_CrossAway_1673552667/save_model_ep375',
                         type=str)
     parser.add_argument('--max_timestep',
                         help='Maximum time step in a single epoch',
@@ -66,7 +66,7 @@ def parse_args():
     #                     default=5+24*2)
     parser.add_argument('--state_length',
                         help='state data vector length',
-                        default=5,
+                        default=5+24*2,
                         type=int)
     parser.add_argument('--pixel_state',
                         help='Image-Based Status',
@@ -86,7 +86,6 @@ def parse_args():
 
 def main(args):
     args = args
-    seed_torch()
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     # # Iter log初始化
@@ -135,7 +134,7 @@ def main(args):
     trace_image = Image.fromarray(trace_image)
     trace_path = ImageDraw.Draw(trace_image)
 
-    steps = tqdm(range(30000), leave=False, position=0, colour='green')
+    steps = tqdm(range(2000), leave=False, position=0, colour='green')
     for step in steps:
         if all(done):
             """轨迹记录"""
